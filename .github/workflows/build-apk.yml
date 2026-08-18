@@ -2,8 +2,6 @@ name: Build HIGHFLY APK
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [ main ]
   push:
     branches: [ main ]
 
@@ -56,9 +54,13 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply minimal HIGHFLY native offline patch
+      - name: Apply HIGHFLY v0.4 native patch
         working-directory: game
         run: node ../scripts/patch-highfly-native.mjs
+
+      - name: Typecheck HIGHFLY v0.4
+        working-directory: game
+        run: pnpm run check:ts
 
       - name: Build native web bundle
         working-directory: game
@@ -83,14 +85,14 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
           df -h
 
       - name: Upload HIGHFLY APK
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-APK
-          path: output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
+          name: HIGHFLY-NEXT-CORE-v0.4-APK
+          path: output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
           if-no-files-found: error
           retention-days: 7
