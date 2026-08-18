@@ -1,0 +1,102 @@
+name: Build HIGHFLY APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout HIGHFLY overlay
+        uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Clone ClaudeCraft v0.39.0
+        run: |
+          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install ClaudeCraft dependencies
+        working-directory: game
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply HIGHFLY native offline patch
+        run: node scripts/patch-highfly-native.mjs
+        working-directory: .
+        env:
+          HIGHFLY_GAME_DIR: game
+
+      - name: Apply patch inside game
+        run: node ../scripts/patch-highfly-native.mjs
+        working-directory: game
+
+      - name: Build native web bundle
+        working-directory: game
+        env:
+          VITE_NATIVE_APP: '1'
+          VITE_HIGHFLY_OFFLINE: '1'
+          VITE_API_ORIGIN: 'http://127.0.0.1'
+        run: |
+          pnpm run build
+          node scripts/build_media_manifest.mjs prune
+
+      - name: Sync Capacitor Android
+        working-directory: game
+        run: pnpm exec cap sync android
+
+      - name: Build playDebug APK
+        working-directory: game/android
+        run: ./gradlew :app:assemblePlayDebug --no-daemon
+
+      - name: Locate APK
+        run: |
+          mkdir -p output
+          APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
+          df -h
+
+      - name: Upload HIGHFLY APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-NEXT-CORE-APK
+          path: output/HIGHFLY_NEXT_CORE_OFFLINE_DEBUG.apk
+          if-no-files-found: error
+          retention-days: 7
