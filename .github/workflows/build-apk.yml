@@ -56,7 +56,9 @@ jobs:
 
       - name: Apply HIGHFLY v0.4 native patch
         working-directory: game
-        run: node ../scripts/patch-highfly-native.mjs
+        run: |
+          node ../scripts/patch-highfly-native.mjs
+          node ../scripts/patch-highfly-v0.4-compat.mjs
 
       - name: Typecheck HIGHFLY v0.4
         working-directory: game
