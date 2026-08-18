@@ -56,15 +56,9 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY native offline patch
-        run: node scripts/patch-highfly-native.mjs
-        working-directory: .
-        env:
-          HIGHFLY_GAME_DIR: game
-
-      - name: Apply patch inside game
-        run: node ../scripts/patch-highfly-native.mjs
+      - name: Apply minimal HIGHFLY native offline patch
         working-directory: game
+        run: node ../scripts/patch-highfly-native.mjs
 
       - name: Build native web bundle
         working-directory: game
