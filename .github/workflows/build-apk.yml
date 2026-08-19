@@ -54,7 +54,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.5.4 native patches
+      - name: Apply HIGHFLY v0.5.5 Action Combat Control
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -67,8 +67,9 @@ jobs:
           node ../scripts/patch-highfly-v0.5.3-anchor-fix.mjs
           node ../scripts/patch-highfly-v0.5.3-mobile-skill-aim.mjs
           node ../scripts/patch-highfly-v0.5.4-player-origin-aim.mjs
+          node ../scripts/patch-highfly-v0.5.5-action-control.mjs
 
-      - name: Typecheck HIGHFLY v0.5.4
+      - name: Typecheck HIGHFLY v0.5.5
         working-directory: game
         run: pnpm run check:ts
 
@@ -95,14 +96,14 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.5.4_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.5.4_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.5.5_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_v0.5.5_DEBUG.apk
           df -h
 
       - name: Upload HIGHFLY APK
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-v0.5.4-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.5.4_DEBUG.apk
+          name: HIGHFLY-NEXT-CORE-v0.5.5-APK
+          path: output/HIGHFLY_NEXT_CORE_v0.5.5_DEBUG.apk
           if-no-files-found: error
           retention-days: 7
