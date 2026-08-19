@@ -26,14 +26,14 @@ function replaceRequired(source, needle, replacement, label) {
   source = replaceRequired(
     source,
     '        const stepFacing = movementFacing ?? facing;',
-    `        // HIGHFLY action locomotion: commit travel direction to gameplay facing.\n        // movement_visual already resolves the camera-relative 360-degree vector;\n        // using it here means releasing the stick preserves that heading instead\n        // of visually snapping back to the camera forward axis.\n        const highflyTravelFacing = visualFacingFor(mi, movementFacing ?? facing);\n        const stepFacing = highflyTravelFacing ?? movementFacing ?? facing;`,
+    `        // HIGHFLY action locomotion: commit travel direction to gameplay facing.\n        // movement_visual already resolves the camera-relative 360-degree vector;\n        // using it here means releasing the stick preserves that heading instead\n        // of visually snapping back to the camera forward axis. The original\n        // authoritative player facing is the final non-null fallback for TS and\n        // for frames where neither camera nor resolver supplied a heading.\n        const highflyTravelFacing = visualFacingFor(\n          mi,\n          movementFacing ?? facing ?? offlineSim.player.facing,\n        );\n        const stepFacing = highflyTravelFacing ?? movementFacing ?? facing;`,
     'offline travel-facing persistence',
   );
 
   source = replaceRequired(
     source,
     '    const foreignFacing = movementFacing ?? resolved.facing;',
-    `    // Mirror the same action-facing rule on the network client path.\n    const highflyTravelFacing = visualFacingFor(\n      resolved.mi,\n      movementFacing ?? resolved.facing,\n    );\n    const foreignFacing = highflyTravelFacing ?? movementFacing ?? resolved.facing;`,
+    `    // Mirror the same action-facing rule on the network client path.\n    const highflyTravelFacing = visualFacingFor(\n      resolved.mi,\n      movementFacing ?? resolved.facing ?? world.player.facing,\n    );\n    const foreignFacing = highflyTravelFacing ?? movementFacing ?? resolved.facing;`,
     'online travel-facing persistence',
   );
 
