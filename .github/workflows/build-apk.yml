@@ -64,6 +64,7 @@ jobs:
           node ../scripts/patch-highfly-v0.5.0-action-foundation.mjs
           node ../scripts/patch-highfly-v0.5.1-free-aim.mjs
           node ../scripts/patch-highfly-v0.5.2-s23-hotfix.mjs
+          node ../scripts/patch-highfly-v0.5.3-anchor-fix.mjs
           node ../scripts/patch-highfly-v0.5.3-mobile-skill-aim.mjs
 
       - name: Typecheck HIGHFLY v0.5.3
