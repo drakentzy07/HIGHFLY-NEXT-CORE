@@ -16,10 +16,10 @@ function replaceRequired(source, needle, replacement, label) {
 
 // ---------------------------------------------------------------------------
 // 1) LOCOMOTION HOTFIX
-// v0.5.0 incorrectly fed the camera-relative visual resolver back into the
-// authoritative facing every frame. On touch this can form a feedback loop and
-// make the avatar spin while moving. Keep the proven v0.4 360-degree visual
-// movement, but restore ClaudeCraft's stable authoritative facing inputs.
+// v0.5.0 fed the camera-relative visual resolver back into authoritative facing.
+// On touch that can create a feedback loop and make the avatar spin while moving.
+// Keep the proven v0.4 360-degree visual movement, but restore ClaudeCraft's
+// stable authoritative facing inputs.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/main.ts';
@@ -45,10 +45,9 @@ function replaceRequired(source, needle, replacement, label) {
 // ---------------------------------------------------------------------------
 // 2) EXPLICIT MOBILE SKILL AIM
 // Position/AoE skills keep ClaudeCraft's authoritative ground reticle from v0.5.1.
-// Targeted hostile skills now get an explicit two-step camera aim on Android:
-// first tap arms the skill + shows a centre reticle, the player rotates the camera,
-// second tap locks the hostile nearest the reticle and casts through the original
-// authoritative ability pipeline. No class or ability definition is rewritten.
+// Targeted hostile skills now get a clear two-step camera aim on Android:
+// first tap arms the skill and shows a centre reticle; rotate the camera; second
+// tap locks the hostile nearest the reticle and casts through the original sim.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/ui/hud.ts';
@@ -62,7 +61,7 @@ function replaceRequired(source, needle, replacement, label) {
   );
 
   const oldSetter = `  /** Native camera heading used by tap-to-soft-aim. */\n  setHighflyAimFacing(facing: number): void {\n    this.highflyAimFacing = Number.isFinite(facing) ? facing : null;\n  }`;
-  const newSetter = `  /** Native camera heading used by HIGHFLY explicit touch aiming. */\n  setHighflyAimFacing(facing: number): void {\n    this.highflyAimFacing = Number.isFinite(facing) ? facing : null;\n    if (this.highflyAimSlot !== null) this.highflyRefreshSkillAim();\n  }\n\n  private highflyEnsureAimOverlay(): HTMLDivElement {\n    if (this.highflyAimOverlay?.isConnected) return this.highflyAimOverlay;\n    const overlay = document.createElement('div');\n    overlay.id = 'highfly-skill-aim';\n    overlay.setAttribute('aria-hidden', 'true');\n    overlay.innerHTML =\n      '<span class="highfly-skill-aim-reticle"></span><span class="highfly-skill-aim-label"></span>';\n    document.body.appendChild(overlay);\n    this.highflyAimOverlay = overlay;\n    return overlay;\n  }\n\n  private highflyExplicitAimDef(barSlot: number): ReturnType<Hud['abilityForSlot']> | null {\n    const resolved = this.abilityForSlot(barSlot);\n    if (!resolved) return null;\n    const def = resolved.def;\n    if (!def.requiresTarget || def.targetType === 'friendly' || def.targetsDead || def.targetMode === 'position') {\n      return null;\n    }\n    return resolved;\n  }\n\n  private highflyPickAimTarget(barSlot: number): number | null {\n    const resolved = this.highflyExplicitAimDef(barSlot);\n    if (!resolved) return null;\n    const player = this.sim.player;\n    const def = resolved.def;\n    const aimFacing = this.highflyAimFacing ?? player.facing;\n    const maxRange = Math.max(8, (def.range ?? 0) + 4);\n    // Explicit reticle is narrower than v0.5.1 soft aim: the player is now\n    // intentionally placing the camera centre, so aim should feel precise.\n    const halfCone = 0.42; // ~24 degrees either side.\n    let bestId: number | null = null;\n    let bestScore = Number.POSITIVE_INFINITY;\n\n    for (const entity of this.sim.entities.values()) {\n      if (entity.id === player.id || entity.dead) continue;\n      const hostile =\n        entity.hostile || isPvpHostileTarget(entity.id, this.sim.duelInfo, this.sim.arenaInfo);\n      if (!hostile) continue;\n      const dx = entity.pos.x - player.pos.x;\n      const dz = entity.pos.z - player.pos.z;\n      const distance = Math.hypot(dx, dz);\n      if (distance <= 0.001 || distance > maxRange) continue;\n      const bearing = Math.atan2(dx, dz);\n      const diff = Math.abs(Math.atan2(Math.sin(bearing - aimFacing), Math.cos(bearing - aimFacing)));\n      if (diff > halfCone) continue;\n      const score = diff * 20 + distance * 0.05;\n      if (score < bestScore) {\n        bestId = entity.id;\n        bestScore = score;\n      }\n    }\n    return bestId;\n  }\n\n  private highflyRefreshSkillAim(): void {\n    if (this.highflyAimSlot === null) return;\n    const overlay = this.highflyEnsureAimOverlay();\n    const targetId = this.highflyPickAimTarget(this.highflyAimSlot);\n    this.highflyAimTargetId = targetId;\n    overlay.classList.add('active');\n    overlay.classList.toggle('has-target', targetId !== null);\n    const label = overlay.querySelector('.highfly-skill-aim-label');\n    if (label) {\n      label.textContent =\n        targetId === null\n          ? \\`SKILL \\${this.highflyAimSlot} · APUNTÁ CON LA CÁMARA\\`\n          : \\`SKILL \\${this.highflyAimSlot} · OBJETIVO LISTO · TOCÁ DE NUEVO\\`;\n    }\n  }\n\n  private highflyCancelSkillAim(): void {\n    this.highflyAimSlot = null;\n    this.highflyAimTargetId = null;\n    this.highflyAimOverlay?.classList.remove('active', 'has-target');\n  }\n\n  /** Return true when this tap was consumed by the explicit aiming state. */\n  private highflyHandleExplicitAim(barSlot: number): boolean {\n    const resolved = this.highflyExplicitAimDef(barSlot);\n    if (!resolved) {\n      this.highflyCancelSkillAim();\n      return false;\n    }\n\n    if (this.highflyAimSlot !== barSlot) {\n      this.highflyAimSlot = barSlot;\n      this.highflyRefreshSkillAim();\n      return true;\n    }\n\n    this.highflyRefreshSkillAim();\n    const targetId = this.highflyAimTargetId;\n    if (targetId === null) return true;\n    this.sim.targetEntity(targetId);\n    this.highflyCancelSkillAim();\n    return false;\n  }`;
+  const newSetter = `  /** Native camera heading used by HIGHFLY explicit touch aiming. */\n  setHighflyAimFacing(facing: number): void {\n    this.highflyAimFacing = Number.isFinite(facing) ? facing : null;\n    if (this.highflyAimSlot !== null) this.highflyRefreshSkillAim();\n  }\n\n  private highflyEnsureAimOverlay(): HTMLDivElement {\n    if (this.highflyAimOverlay?.isConnected) return this.highflyAimOverlay;\n    const overlay = document.createElement('div');\n    overlay.id = 'highfly-skill-aim';\n    overlay.setAttribute('aria-hidden', 'true');\n    overlay.innerHTML =\n      '<span class="highfly-skill-aim-reticle"></span><span class="highfly-skill-aim-label"></span>';\n    document.body.appendChild(overlay);\n    this.highflyAimOverlay = overlay;\n    return overlay;\n  }\n\n  private highflyExplicitAimDef(barSlot: number): ResolvedAbility | null {\n    const resolved = this.abilityForSlot(barSlot);\n    if (!resolved) return null;\n    const def = resolved.def;\n    if (!def.requiresTarget || def.targetType === 'friendly' || def.targetsDead || def.targetMode === 'position') {\n      return null;\n    }\n    return resolved;\n  }\n\n  private highflyPickAimTarget(barSlot: number): number | null {\n    const resolved = this.highflyExplicitAimDef(barSlot);\n    if (!resolved) return null;\n    const player = this.sim.player;\n    const def = resolved.def;\n    const aimFacing = this.highflyAimFacing ?? player.facing;\n    const maxRange = Math.max(8, (def.range ?? 0) + 4);\n    const halfCone = 0.42; // ~24 degrees either side.\n    let bestId: number | null = null;\n    let bestScore = Number.POSITIVE_INFINITY;\n\n    for (const entity of this.sim.entities.values()) {\n      if (entity.id === player.id || entity.dead) continue;\n      const hostile =\n        entity.hostile || isPvpHostileTarget(entity.id, this.sim.duelInfo, this.sim.arenaInfo);\n      if (!hostile) continue;\n      const dx = entity.pos.x - player.pos.x;\n      const dz = entity.pos.z - player.pos.z;\n      const distance = Math.hypot(dx, dz);\n      if (distance <= 0.001 || distance > maxRange) continue;\n      const bearing = Math.atan2(dx, dz);\n      const diff = Math.abs(Math.atan2(Math.sin(bearing - aimFacing), Math.cos(bearing - aimFacing)));\n      if (diff > halfCone) continue;\n      const score = diff * 20 + distance * 0.05;\n      if (score < bestScore) {\n        bestId = entity.id;\n        bestScore = score;\n      }\n    }\n    return bestId;\n  }\n\n  private highflyRefreshSkillAim(): void {\n    if (this.highflyAimSlot === null) return;\n    const overlay = this.highflyEnsureAimOverlay();\n    const targetId = this.highflyPickAimTarget(this.highflyAimSlot);\n    this.highflyAimTargetId = targetId;\n    overlay.classList.add('active');\n    overlay.classList.toggle('has-target', targetId !== null);\n    const label = overlay.querySelector('.highfly-skill-aim-label');\n    if (label) {\n      label.textContent =\n        targetId === null\n          ? 'SKILL ' + this.highflyAimSlot + ' · APUNTÁ CON LA CÁMARA'\n          : 'SKILL ' + this.highflyAimSlot + ' · OBJETIVO LISTO · TOCÁ DE NUEVO';\n    }\n  }\n\n  private highflyCancelSkillAim(): void {\n    this.highflyAimSlot = null;\n    this.highflyAimTargetId = null;\n    this.highflyAimOverlay?.classList.remove('active', 'has-target');\n  }\n\n  /** Return true when this tap was consumed by the explicit aiming state. */\n  private highflyHandleExplicitAim(barSlot: number): boolean {\n    const resolved = this.highflyExplicitAimDef(barSlot);\n    if (!resolved) {\n      this.highflyCancelSkillAim();\n      return false;\n    }\n\n    if (this.highflyAimSlot !== barSlot) {\n      this.highflyAimSlot = barSlot;\n      this.highflyRefreshSkillAim();\n      return true;\n    }\n\n    this.highflyRefreshSkillAim();\n    const targetId = this.highflyAimTargetId;\n    if (targetId === null) return true;\n    this.sim.targetEntity(targetId);\n    this.highflyCancelSkillAim();\n    return false;\n  }`;
   source = replaceRequired(source, oldSetter, newSetter, 'explicit aim helpers');
 
   source = replaceRequired(
@@ -77,9 +76,7 @@ function replaceRequired(source, needle, replacement, label) {
 
 // ---------------------------------------------------------------------------
 // 3) DASH DIRECTION INDICATOR
-// The drag-selected dodge already works. While the finger is dragging DASH, show
-// a real arrow from the button toward the chosen screen direction so the player
-// sees exactly where the dodge will go before release.
+// While dragging DASH, show an arrow toward the chosen screen direction.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/game/mobile_controls.ts';
@@ -88,7 +85,7 @@ function replaceRequired(source, needle, replacement, label) {
   source = replaceRequired(
     source,
     `      lastX = event.clientX;\n      lastY = event.clientY;\n    });\n\n    const finish = (event: PointerEvent, cancelled: boolean): void => {`,
-    `      lastX = event.clientX;\n      lastY = event.clientY;\n      const dx = lastX - startX;\n      const dy = lastY - startY;\n      if (Math.hypot(dx, dy) >= 4) {\n        // 0deg points up in CSS; atan2 is measured from screen-right.\n        const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;\n        button.style.setProperty('--highfly-dash-angle', String(angle) + 'deg');\n      }\n    });\n\n    const finish = (event: PointerEvent, cancelled: boolean): void => {`,
+    `      lastX = event.clientX;\n      lastY = event.clientY;\n      const dx = lastX - startX;\n      const dy = lastY - startY;\n      if (Math.hypot(dx, dy) >= 4) {\n        const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;\n        button.style.setProperty('--highfly-dash-angle', String(angle) + 'deg');\n      }\n    });\n\n    const finish = (event: PointerEvent, cancelled: boolean): void => {`,
     'dash drag angle visual',
   );
 
@@ -104,9 +101,7 @@ function replaceRequired(source, needle, replacement, label) {
 
 // ---------------------------------------------------------------------------
 // 4) S23 CREATOR / AIM / DASH VISUALS
-// Previous creator CSS was too aggressive about overflow containment. Keep the
-// compact two-column creator, but guarantee ENTER WORLD is always reachable on
-// the real S23 landscape viewport with a fixed native action button.
+// Keep the compact creator but guarantee ENTER WORLD is visible on S23 landscape.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/styles/highfly.native.css';
