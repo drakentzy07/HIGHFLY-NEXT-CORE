@@ -100,6 +100,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.5-action-rm-creator.mjs
           node ../scripts/patch-highfly-v0.6.5.1-creator-state.mjs
           node ../scripts/patch-highfly-v0.6.5.2-creator-runtime.mjs
+          node ../scripts/patch-highfly-v0.6.5.3-training-migration.mjs
 
       - name: Typecheck HIGHFLY v0.6.5
         working-directory: game
@@ -113,7 +114,7 @@ jobs:
 
       - name: Test HIGHFLY progression + creator + free aim + workout + v0.6.5 contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -152,7 +153,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.6.5.2: creador móvil separado en Apariencia y Clase con controlador seguro de apertura/cierre, sin MutationObserver global; mantiene ataque básico fluido, RM reales, rutina calculada, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.6.5.3: corrige la migración de rutinas antiguas/frescas que bloqueaba la entrada al mundo; el APK queda gated por smoke real Apariencia → Clase → Mundo. Mantiene creador móvil, ataque básico fluido, RM reales, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
