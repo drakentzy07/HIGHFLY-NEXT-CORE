@@ -99,6 +99,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.4.3-css-fix.mjs
           node ../scripts/patch-highfly-v0.6.5-action-rm-creator.mjs
           node ../scripts/patch-highfly-v0.6.5.1-creator-state.mjs
+          node ../scripts/patch-highfly-v0.6.5.2-creator-runtime.mjs
 
       - name: Typecheck HIGHFLY v0.6.5
         working-directory: game
@@ -145,7 +146,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.6.5: creador móvil separado estructuralmente en Apariencia y Clase; ficha de clase legible; ataque básico con intención persistente sin reiniciar movimiento; Entrenamiento con pestaña RM, cargas derivadas de marcas reales y días HIGHFLY; acceso de Entrenamiento con branding propio. Mantiene free aim, logger, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.6.5.2: creador móvil separado en Apariencia y Clase con controlador seguro de apertura/cierre, sin MutationObserver global; mantiene ataque básico fluido, RM reales, rutina calculada, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
@@ -163,6 +164,6 @@ jobs:
           | while read -r artifact_id; do
               if [ -n "$artifact_id" ]; then
                 echo "Deleting old Actions artifact $artifact_id"
-                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$artifact_id"
               fi
             done
