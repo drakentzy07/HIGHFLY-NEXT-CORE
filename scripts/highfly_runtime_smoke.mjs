@@ -116,6 +116,36 @@ try {
     }
   });
 
+  // v0.6.6: measure the REAL 915x412 layout. A 70/30 regression must fail CI
+  // even if a textual CSS contract happens to pass.
+  const appearanceGeometry = await page.evaluate(() => {
+    const root = document.getElementById('offline-select');
+    const layout = root?.querySelector('.charselect-layout');
+    const left = root?.querySelector('.charselect-col-left');
+    const right = root?.querySelector('.charselect-col-right');
+    const preview = root?.querySelector('#offline-preview-container');
+    if (!layout || !left || !right || !preview) return null;
+    const lr = left.getBoundingClientRect();
+    const rr = right.getBoundingClientRect();
+    const pr = preview.getBoundingClientRect();
+    return {
+      step: root?.dataset.hfCreatorStep ?? null,
+      leftWidth: lr.width,
+      rightWidth: rr.width,
+      rightHeight: rr.height,
+      previewHeight: pr.height,
+    };
+  });
+  console.log('[HIGHFLY CREATOR APPEARANCE GEOMETRY]', appearanceGeometry);
+  if (
+    !appearanceGeometry ||
+    appearanceGeometry.step !== 'appearance' ||
+    Math.abs(appearanceGeometry.leftWidth - appearanceGeometry.rightWidth) > 12 ||
+    appearanceGeometry.previewHeight < appearanceGeometry.rightHeight * 0.88
+  ) {
+    throw new Error(`HIGHFLY creator Appearance is not true 50/50: ${JSON.stringify(appearanceGeometry)}`);
+  }
+
   // Exercise the actual HIGHFLY split creator, not ClaudeCraft's legacy shortcut.
   await page.evaluate(() => document.querySelector('[data-hf-creator-next]')?.click());
   await page.waitForSelector('#offline-select .mini-class[data-class="warrior"]', {
@@ -124,6 +154,42 @@ try {
   });
   await page.evaluate(() => document.querySelector('#offline-select .mini-class[data-class="warrior"]')?.click());
   await page.waitForSelector('#btn-start-offline', { visible: true, timeout: 15000 });
+
+  const classGeometry = await page.evaluate(() => {
+    const root = document.getElementById('offline-select');
+    const left = root?.querySelector('.charselect-col-left');
+    const right = root?.querySelector('.charselect-col-right');
+    const details = root?.querySelector('#offline-class-details');
+    const desc = root?.querySelector('.hf-class-desc');
+    const preview = root?.querySelector('#offline-preview-container');
+    if (!left || !right || !details || !desc || !preview) return null;
+    const lr = left.getBoundingClientRect();
+    const rr = right.getBoundingClientRect();
+    const dr = details.getBoundingClientRect();
+    const xr = desc.getBoundingClientRect();
+    const pr = preview.getBoundingClientRect();
+    return {
+      step: root?.dataset.hfCreatorStep ?? null,
+      leftWidth: lr.width,
+      rightWidth: rr.width,
+      previewHeight: pr.height,
+      detailsHeight: dr.height,
+      descriptionBottom: xr.bottom,
+      detailsBottom: dr.bottom,
+    };
+  });
+  console.log('[HIGHFLY CREATOR CLASS GEOMETRY]', classGeometry);
+  if (
+    !classGeometry ||
+    classGeometry.step !== 'class' ||
+    Math.abs(classGeometry.leftWidth - classGeometry.rightWidth) > 12 ||
+    classGeometry.previewHeight < 130 ||
+    classGeometry.detailsHeight < 120 ||
+    classGeometry.descriptionBottom > classGeometry.detailsBottom + 2
+  ) {
+    throw new Error(`HIGHFLY creator Class layout is clipped/not 50/50: ${JSON.stringify(classGeometry)}`);
+  }
+
   await page.evaluate(() => document.querySelector('#btn-start-offline')?.click());
 
   await page
@@ -170,7 +236,7 @@ try {
       `HIGHFLY ${MODE_LABEL} native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
     );
   }
-  console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] Apariencia -> Clase -> world boot OK`);
+  console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] 50/50 Apariencia -> Clase -> world boot OK`);
 } finally {
   if (browser) await browser.close().catch(() => {});
   server.kill('SIGTERM');
