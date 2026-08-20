@@ -56,6 +56,31 @@ try {
     hasTouch: true,
   });
 
+  // ClaudeCraft catches renderer boot exceptions and turns them into a fatal overlay.
+  // Capture the Error object BEFORE that catch serializes it to a short user message.
+  await page.evaluateOnNewDocument(() => {
+    window.__highflySmokeCaught = [];
+    const capture = (level, original) => (...args) => {
+      try {
+        const text = args
+          .map((arg) => {
+            if (arg instanceof Error) return arg.stack || arg.message || String(arg);
+            if (typeof arg === 'string') return arg;
+            try {
+              return JSON.stringify(arg);
+            } catch {
+              return String(arg);
+            }
+          })
+          .join(' ');
+        window.__highflySmokeCaught.push(`${level.toUpperCase()} ${text}`);
+      } catch {}
+      original(...args);
+    };
+    console.warn = capture('warn', console.warn.bind(console));
+    console.error = capture('error', console.error.bind(console));
+  });
+
   const diagnostics = [];
   page.on('pageerror', (error) => {
     const text = error.stack || error.message || String(error);
@@ -101,16 +126,20 @@ try {
     .then(() => page.evaluate(() => document.querySelector('#mobile-preflight-continue')?.click()))
     .catch(() => {});
 
-  const outcome = await page.waitForFunction(
-    () => {
-      const fatal = document.querySelector('#fatal-overlay, .fatal-overlay');
-      const fatalText = fatal && getComputedStyle(fatal).display !== 'none' ? (fatal.textContent ?? '').trim() : '';
-      if (fatalText) return { kind: 'fatal', fatalText };
-      if (window.__game?.sim?.player) return { kind: 'game', fatalText: '' };
-      return false;
-    },
-    { timeout: 45000 },
-  ).then((handle) => handle.jsonValue()).catch(() => null);
+  const outcome = await page
+    .waitForFunction(
+      () => {
+        const fatal = document.querySelector('#fatal-overlay, .fatal-overlay');
+        const fatalText =
+          fatal && getComputedStyle(fatal).display !== 'none' ? (fatal.textContent ?? '').trim() : '';
+        if (fatalText) return { kind: 'fatal', fatalText };
+        if (window.__game?.sim?.player) return { kind: 'game', fatalText: '' };
+        return false;
+      },
+      { timeout: 45000 },
+    )
+    .then((handle) => handle.jsonValue())
+    .catch(() => null);
 
   await sleep(1200);
   const state = await page.evaluate(() => {
@@ -124,13 +153,16 @@ try {
       playerClass: window.__game?.sim?.player?.templateId ?? null,
       bodyClass: document.body.className,
       url: location.href,
+      captured: Array.isArray(window.__highflySmokeCaught)
+        ? window.__highflySmokeCaught.slice(-20)
+        : [],
     };
   });
 
   console.log('[HIGHFLY SMOKE STATE]', JSON.stringify(state, null, 2));
   if (!outcome || outcome.kind !== 'game' || state.fatalText) {
     throw new Error(
-      `HIGHFLY native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state)}\n${diagnostics.join('\n\n')}`,
+      `HIGHFLY native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
     );
   }
   console.log('[HIGHFLY SMOKE] Apariencia -> Clase -> world boot OK');
