@@ -157,3 +157,49 @@ installHighflyCreatorSteps();
 
 fs.writeFileSync(path, content, 'utf8');
 console.log('[HIGHFLY v0.6.5.2] creator runtime observer removed; panel-scoped controller installed.');
+
+function patchContract(testPath, replacements) {
+  let source = fs.readFileSync(testPath, 'utf8');
+  for (const [from, to, label] of replacements) {
+    if (!source.includes(from)) throw new Error(`Anchor not found: ${label}`);
+    source = source.replace(from, to);
+  }
+  fs.writeFileSync(testPath, source, 'utf8');
+  console.log(`[HIGHFLY v0.6.5.2] updated ${testPath}`);
+}
+
+// v0.6.4/v0.6.5 originally asserted implementation-specific helper names.
+// The safe runtime controller intentionally replaced setStep/forceVisible with
+// applyStep/setVisible. Keep the behavioral contract, not the obsolete spelling.
+patchContract('tests/highfly_v064_control_creator.test.ts', [
+  [
+    `expect(steps).toContain("setStep('appearance')");`,
+    `expect(steps).toContain("currentStep = 'appearance'");\n    expect(steps).toContain('applyStep(root, currentStep)');`,
+    'v0.6.4 appearance stage contract',
+  ],
+  [
+    `expect(steps).toContain("setStep('class')");`,
+    `expect(steps).toContain("currentStep = 'class'");\n    expect(steps).not.toContain('new MutationObserver');`,
+    'v0.6.4 class stage contract',
+  ],
+]);
+
+patchContract('tests/highfly_v065_action_rms_creator.test.ts', [
+  [
+    `expect(steps).toContain('forceVisible(classRow, !appearance)');`,
+    `expect(steps).toContain('setVisible(refs.classRow, !appearance)');`,
+    'v0.6.5 class row contract',
+  ],
+  [
+    `expect(steps).toContain('forceVisible(classDetails, !appearance)');`,
+    `expect(steps).toContain('setVisible(refs.classDetails, !appearance)');`,
+    'v0.6.5 class details contract',
+  ],
+  [
+    `expect(steps).toContain('forceVisible(appearanceEditor, appearance)');`,
+    `expect(steps).toContain('setVisible(refs.appearanceEditor, appearance)');\n    expect(steps).not.toContain('new MutationObserver');\n    expect(steps).toContain('window.setInterval(tick, 200)');`,
+    'v0.6.5 appearance/runtime contract',
+  ],
+]);
+
+console.log('[HIGHFLY v0.6.5.2] creator runtime contracts aligned with safe controller.');
