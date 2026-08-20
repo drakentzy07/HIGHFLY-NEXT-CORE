@@ -178,8 +178,11 @@ function replaceRequired(source, from, to, label) {
     'player motion remaining cast constants import',
   );
 
-  const helperAnchor = "export const BACKPEDAL_MULT = 0.65;";
-  const helper = `const HIGHFLY_STATIONARY_CASTS = new Set<string>([\n  CRAFT_CAST_ID,\n  DISENCHANT_CAST_ID,\n  ENCHANT_CAST_ID,\n  FISHING_CAST_ID,\n  GATHER_CAST_ID,\n  SALVAGE_CAST_ID,\n  TOOL_RECHARGE_CAST_ID,\n]);\n\nfunction highflyCombatCastMoves(abilityId: string): boolean {\n  return !HIGHFLY_STATIONARY_CASTS.has(abilityId);\n}\n\n${helperAnchor}`;
+  // The native HIGHFLY mobility patch already owns BACKPEDAL_MULT and the dash
+  // constants. Anchor after the last HIGHFLY dash constant instead of looking
+  // for ClaudeCraft's original BACKPEDAL_MULT = 0.65, which no longer exists.
+  const helperAnchor = "export const HIGHFLY_DASH_SPEED_MULT = 2.6;";
+  const helper = `${helperAnchor}\n\nconst HIGHFLY_STATIONARY_CASTS = new Set<string>([\n  CRAFT_CAST_ID,\n  DISENCHANT_CAST_ID,\n  ENCHANT_CAST_ID,\n  FISHING_CAST_ID,\n  GATHER_CAST_ID,\n  SALVAGE_CAST_ID,\n  TOOL_RECHARGE_CAST_ID,\n]);\n\nfunction highflyCombatCastMoves(abilityId: string): boolean {\n  return !HIGHFLY_STATIONARY_CASTS.has(abilityId);\n}`;
   source = replaceRequired(source, helperAnchor, helper, 'HIGHFLY stationary cast helper');
 
   const oldMobile = `      const mobile =\n        casting != null &&\n        (casting.def.castWhileMoving ||\n          casting.castWhileMoving ||\n          iceFloesAuraForAbility(p, p.castingAbility) !== undefined ||\n          afflictionCanCastWhileMoving(p, p.castingAbility) ||\n          p.auras.some((a) => a.kind === 'processional_grace'));`;
