@@ -17,4 +17,20 @@ tail = tail.replaceAll('\\n', '\n').replaceAll('\\"', '"');
 css = head + tail;
 
 fs.writeFileSync(path, css, 'utf8');
-console.log('[HIGHFLY v0.6.4.3] creator CSS escape normalization applied.');
+
+// v0.6.3 authors the workout routines as Readonly<Record<...>>. The v0.6.5
+// structural/RM pass replaces the complete routine table and intentionally uses
+// a mutable local Record while building the new five-day HIGHFLY prescription.
+// Normalize only this declaration so the next patch can anchor deterministically.
+const trainingPath = 'src/highfly/training_ui.ts';
+let training = fs.readFileSync(trainingPath, 'utf8');
+const readonlyRoutineDecl = 'const ROUTINES: Readonly<Record<string, readonly string[]>> = {';
+const recordRoutineDecl = 'const ROUTINES: Record<string, readonly string[]> = {';
+if (training.includes(readonlyRoutineDecl)) {
+  training = training.replace(readonlyRoutineDecl, recordRoutineDecl);
+  fs.writeFileSync(trainingPath, training, 'utf8');
+} else if (!training.includes(recordRoutineDecl)) {
+  throw new Error('HIGHFLY training routine declaration not found for v0.6.5 compatibility');
+}
+
+console.log('[HIGHFLY v0.6.4.3] creator CSS + v0.6.5 training anchor compatibility applied.');
