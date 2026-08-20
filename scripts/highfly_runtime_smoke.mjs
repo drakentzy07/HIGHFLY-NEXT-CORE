@@ -149,7 +149,7 @@ try {
   if (Math.abs(appearanceGeometry.leftWidth - appearanceGeometry.rightWidth) > 12) {
     throw new Error(`HIGHFLY creator Appearance columns are not true 50/50: ${JSON.stringify(appearanceGeometry)}`);
   }
-  if (appearanceGeometry.previewHeight < appearanceGeometry.rightHeight * 0.88) {
+  if (appearanceGeometry.previewHeight < appearanceGeometry.rightHeight * 0.98) {
     throw new Error(`HIGHFLY creator preview does not fill the right half: ${JSON.stringify(appearanceGeometry)}`);
   }
 
@@ -171,26 +171,55 @@ try {
     const dr = details.getBoundingClientRect();
     const xr = desc.getBoundingClientRect();
     const pr = preview.getBoundingClientRect();
+    const rs = getComputedStyle(right);
+    const ps = getComputedStyle(preview);
+    const ds = getComputedStyle(details);
     return {
       step: root?.dataset.hfCreatorStep ?? null,
       leftWidth: lr.width,
       rightWidth: rr.width,
+      rightHeight: rr.height,
       previewHeight: pr.height,
+      previewBottom: pr.bottom,
+      detailsTop: dr.top,
       detailsHeight: dr.height,
+      detailsClientHeight: details.clientHeight,
+      detailsScrollHeight: details.scrollHeight,
       descriptionBottom: xr.bottom,
       detailsBottom: dr.bottom,
+      rightDisplay: rs.display,
+      rightGridTemplateRows: rs.gridTemplateRows,
+      rightGap: rs.gap,
+      previewPosition: ps.position,
+      previewCssHeight: ps.height,
+      previewMinHeight: ps.minHeight,
+      detailsPosition: ds.position,
+      detailsCssHeight: ds.height,
+      detailsMinHeight: ds.minHeight,
+      detailsOverflow: ds.overflow,
+      previewInlineStyle: preview.getAttribute('style') ?? '',
+      detailsInlineStyle: details.getAttribute('style') ?? '',
+      rightInlineStyle: right.getAttribute('style') ?? '',
     };
   });
   console.log('[HIGHFLY CREATOR CLASS GEOMETRY]', classGeometry);
-  if (
-    !classGeometry ||
-    classGeometry.step !== 'class' ||
-    Math.abs(classGeometry.leftWidth - classGeometry.rightWidth) > 12 ||
-    classGeometry.previewHeight < 130 ||
-    classGeometry.detailsHeight < 120 ||
-    classGeometry.descriptionBottom > classGeometry.detailsBottom + 2
-  ) {
-    throw new Error(`HIGHFLY creator Class layout is clipped/not 50/50: ${JSON.stringify(classGeometry)}`);
+  if (!classGeometry || classGeometry.step !== 'class') {
+    throw new Error(`HIGHFLY creator did not enter Class correctly: ${JSON.stringify(classGeometry)}`);
+  }
+  if (Math.abs(classGeometry.leftWidth - classGeometry.rightWidth) > 12) {
+    throw new Error(`HIGHFLY creator Class columns are not true 50/50: ${JSON.stringify(classGeometry)}`);
+  }
+  if (classGeometry.previewHeight < 125 || classGeometry.detailsHeight < 140) {
+    throw new Error(`HIGHFLY creator Class preview/details split is too small: ${JSON.stringify(classGeometry)}`);
+  }
+  if (classGeometry.detailsTop < classGeometry.previewBottom + 3) {
+    throw new Error(`HIGHFLY creator Class preview overlaps the details sheet: ${JSON.stringify(classGeometry)}`);
+  }
+  if (classGeometry.descriptionBottom > classGeometry.detailsBottom + 2) {
+    throw new Error(`HIGHFLY creator Class description is clipped: ${JSON.stringify(classGeometry)}`);
+  }
+  if (classGeometry.detailsScrollHeight > classGeometry.detailsClientHeight + 4) {
+    throw new Error(`HIGHFLY creator Class sheet content still overflows/cuts stats: ${JSON.stringify(classGeometry)}`);
   }
 
   await page.evaluate(() => document.querySelector('#btn-start-offline')?.click());
