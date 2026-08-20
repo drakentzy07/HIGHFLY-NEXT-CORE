@@ -154,9 +154,28 @@ try {
   }
 
   await page.evaluate(() => document.querySelector('[data-hf-creator-next]')?.click());
+  await page.waitForFunction(
+    () => document.getElementById('offline-select')?.dataset.hfCreatorStep === 'class',
+    { timeout: 15000 },
+  );
   await page.waitForSelector('#offline-select .mini-class[data-class="warrior"]', { visible: true, timeout: 15000 });
   await page.evaluate(() => document.querySelector('#offline-select .mini-class[data-class="warrior"]')?.click());
   await page.waitForSelector('#btn-start-offline', { visible: true, timeout: 15000 });
+
+  // Class details are rendered by ClaudeCraft after selection. Do not measure a
+  // transient empty sheet: wait for meaningful detail text / HIGHFLY description.
+  await page.waitForFunction(
+    () => {
+      const root = document.getElementById('offline-select');
+      const details = root?.querySelector('#offline-class-details');
+      if (!root || root.dataset.hfCreatorStep !== 'class' || !details) return false;
+      const visible = getComputedStyle(details).display !== 'none';
+      const text = (details.textContent ?? '').trim();
+      return visible && text.length > 20 && Boolean(details.querySelector('.hf-class-desc'));
+    },
+    { timeout: 10000 },
+  ).catch(() => {});
+  await sleep(250);
 
   const classGeometry = await page.evaluate(() => {
     const root = document.getElementById('offline-select');
@@ -165,7 +184,19 @@ try {
     const details = root?.querySelector('#offline-class-details');
     const desc = root?.querySelector('.hf-class-desc');
     const preview = root?.querySelector('#offline-preview-container');
-    if (!left || !right || !details || !desc || !preview) return null;
+    const base = {
+      ready: Boolean(left && right && details && desc && preview),
+      step: root?.dataset.hfCreatorStep ?? null,
+      hasLeft: Boolean(left),
+      hasRight: Boolean(right),
+      hasDetails: Boolean(details),
+      hasDescription: Boolean(desc),
+      hasPreview: Boolean(preview),
+      selectedClass: root?.querySelector('.mini-class.sel')?.getAttribute('data-class') ?? null,
+      detailsText: (details?.textContent ?? '').trim().slice(0, 700),
+      detailsHtml: (details?.innerHTML ?? '').slice(0, 1400),
+    };
+    if (!left || !right || !details || !desc || !preview) return base;
     const lr = left.getBoundingClientRect();
     const rr = right.getBoundingClientRect();
     const dr = details.getBoundingClientRect();
@@ -175,7 +206,7 @@ try {
     const ps = getComputedStyle(preview);
     const ds = getComputedStyle(details);
     return {
-      step: root?.dataset.hfCreatorStep ?? null,
+      ...base,
       leftWidth: lr.width,
       rightWidth: rr.width,
       rightHeight: rr.height,
@@ -203,8 +234,8 @@ try {
     };
   });
   console.log('[HIGHFLY CREATOR CLASS GEOMETRY]', classGeometry);
-  if (!classGeometry || classGeometry.step !== 'class') {
-    throw new Error(`HIGHFLY creator did not enter Class correctly: ${JSON.stringify(classGeometry)}`);
+  if (!classGeometry?.ready || classGeometry.step !== 'class') {
+    throw new Error(`HIGHFLY creator Class sheet did not become ready: ${JSON.stringify(classGeometry)}`);
   }
   if (Math.abs(classGeometry.leftWidth - classGeometry.rightWidth) > 12) {
     throw new Error(`HIGHFLY creator Class columns are not true 50/50: ${JSON.stringify(classGeometry)}`);
