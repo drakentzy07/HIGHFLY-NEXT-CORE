@@ -87,6 +87,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.3-mobile-polish.mjs
           node ../scripts/patch-highfly-v0.6.3-test-contracts.mjs
           node ../scripts/patch-highfly-v0.6.4-freecast-creator.mjs
+          node ../scripts/patch-highfly-v0.6.4.1-lifecycle-fix.mjs
 
       - name: Typecheck HIGHFLY v0.6.4
         working-directory: game
