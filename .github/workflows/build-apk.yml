@@ -71,14 +71,15 @@ jobs:
           node ../scripts/patch-highfly-v0.6.0-big-pass.mjs
           node ../scripts/patch-highfly-v0.6.0-compat.mjs
           node ../scripts/patch-highfly-v0.6.1-full-pass.mjs
+          node ../scripts/patch-highfly-v0.6.1-moba-aim.mjs
 
       - name: Typecheck HIGHFLY v0.6.1
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY progression contracts
+      - name: Test HIGHFLY progression + mobile aim contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts
 
       - name: Build native web bundle
         working-directory: game
