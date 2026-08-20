@@ -102,6 +102,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.5.2-creator-runtime.mjs
           node ../scripts/patch-highfly-v0.6.5.3-training-migration.mjs
           node ../scripts/patch-highfly-v0.6.6-creator-combat-flow.mjs
+          node ../scripts/patch-highfly-v0.6.6.1-creator-stage.mjs
 
       - name: Typecheck HIGHFLY v0.6.6
         working-directory: game
@@ -115,7 +116,7 @@ jobs:
 
       - name: Test HIGHFLY v0.6.6 progression + creator + mobile combat
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts
 
       - name: Build native web bundle
         working-directory: game
