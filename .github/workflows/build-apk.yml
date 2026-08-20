@@ -64,7 +64,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.3 Full Pass
+      - name: Apply HIGHFLY v0.6.4 Full Pass
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -86,14 +86,15 @@ jobs:
           node ../scripts/patch-highfly-v0.6.3-precompat.mjs
           node ../scripts/patch-highfly-v0.6.3-mobile-polish.mjs
           node ../scripts/patch-highfly-v0.6.3-test-contracts.mjs
+          node ../scripts/patch-highfly-v0.6.4-freecast-creator.mjs
 
-      - name: Typecheck HIGHFLY v0.6.3
+      - name: Typecheck HIGHFLY v0.6.4
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY progression + creator + mobile aim + workout contracts
+      - name: Test HIGHFLY progression + creator + free aim + workout contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -132,10 +133,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
+          NOTES="HIGHFLY v0.6.4: Entrenamiento reemplaza Discord de forma nativa; apuntado manual libre que puede fallar/castear al mundo sin convertir la skill en básico; creador móvil dividido en Apariencia y Clase; mantiene logger real, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "HIGHFLY v0.6.3: creator móvil, apuntado tipo MOBA y entrenamiento real por ejercicios/series/RM/descansos."
+            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
-            gh release create "$TAG" --title "$TITLE" --prerelease --notes "HIGHFLY v0.6.3: creator móvil, apuntado tipo MOBA y entrenamiento real por ejercicios/series/RM/descansos."
+            gh release create "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           fi
           gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
 
