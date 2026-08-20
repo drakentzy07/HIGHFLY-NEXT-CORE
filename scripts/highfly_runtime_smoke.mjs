@@ -37,13 +37,13 @@ try {
   await waitForServer();
   browser = await puppeteer.launch({
     executablePath: BROWSER_PATH,
-    headless: true,
+    headless: 'new',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--ignore-gpu-blocklist',
-      '--enable-webgl',
-      '--use-gl=swiftshader',
+      '--window-size=915,412',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
       '--disable-dev-shm-usage',
     ],
   });
