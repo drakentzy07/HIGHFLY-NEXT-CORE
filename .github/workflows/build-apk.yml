@@ -31,9 +31,16 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
-      - name: Clone ClaudeCraft v0.39.0
+      - name: Fetch ClaudeCraft v0.39.0 snapshot
         run: |
-          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+          rm -rf game claudecraft.tar.gz
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+            https://github.com/levy-street/world-of-claudecraft/archive/refs/heads/release/v0.39.0.tar.gz \
+            -o claudecraft.tar.gz
+          mkdir -p game
+          tar -xzf claudecraft.tar.gz --strip-components=1 -C game
+          rm -f claudecraft.tar.gz
+          test -f game/package.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
