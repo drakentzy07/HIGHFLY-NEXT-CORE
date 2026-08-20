@@ -261,6 +261,9 @@ try {
     .then(() => page.evaluate(() => document.querySelector('#mobile-preflight-continue')?.click()))
     .catch(() => {});
 
+  // SwiftShader on GitHub's headless runner is dramatically slower than a real S23 GPU.
+  // Keep __game.sim.player as the authoritative success condition, but give the renderer
+  // enough time to finish assets -> prewarm -> first paint before declaring a boot failure.
   const outcome = await page
     .waitForFunction(
       () => {
@@ -270,7 +273,7 @@ try {
         if (window.__game?.sim?.player) return { kind: 'game', fatalText: '' };
         return false;
       },
-      { timeout: 45000 },
+      { timeout: 120000 },
     )
     .then((handle) => handle.jsonValue())
     .catch(() => null);
