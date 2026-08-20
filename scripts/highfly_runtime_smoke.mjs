@@ -5,6 +5,8 @@ import { BROWSER_PATH } from './browser_path.mjs';
 const HOST = '127.0.0.1';
 const PORT = 4173;
 const BASE = `http://${HOST}:${PORT}`;
+const DIST_MODE = process.env.HIGHFLY_SMOKE_DIST === '1';
+const MODE_LABEL = DIST_MODE ? 'dist' : 'source';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function waitForServer(timeoutMs = 30000) {
@@ -16,10 +18,13 @@ async function waitForServer(timeoutMs = 30000) {
     } catch {}
     await sleep(250);
   }
-  throw new Error('HIGHFLY runtime smoke: Vite server did not become ready');
+  throw new Error(`HIGHFLY ${MODE_LABEL} runtime smoke: server did not become ready`);
 }
 
-const server = spawn('pnpm', ['exec', 'vite', '--host', HOST, '--port', String(PORT), '--strictPort'], {
+const viteArgs = DIST_MODE
+  ? ['exec', 'vite', 'preview', '--host', HOST, '--port', String(PORT), '--strictPort']
+  : ['exec', 'vite', '--host', HOST, '--port', String(PORT), '--strictPort'];
+const server = spawn('pnpm', viteArgs, {
   cwd: process.cwd(),
   env: {
     ...process.env,
@@ -29,8 +34,8 @@ const server = spawn('pnpm', ['exec', 'vite', '--host', HOST, '--port', String(P
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
-server.stdout.on('data', (chunk) => process.stdout.write(`[vite] ${chunk}`));
-server.stderr.on('data', (chunk) => process.stderr.write(`[vite] ${chunk}`));
+server.stdout.on('data', (chunk) => process.stdout.write(`[vite:${MODE_LABEL}] ${chunk}`));
+server.stderr.on('data', (chunk) => process.stderr.write(`[vite:${MODE_LABEL}] ${chunk}`));
 
 let browser;
 try {
@@ -85,13 +90,13 @@ try {
   page.on('pageerror', (error) => {
     const text = error.stack || error.message || String(error);
     diagnostics.push(`PAGEERROR\n${text}`);
-    console.error('[HIGHFLY SMOKE PAGEERROR]', text);
+    console.error(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE PAGEERROR]`, text);
   });
   page.on('console', (message) => {
     if (message.type() !== 'error' && message.type() !== 'warning') return;
     const text = message.text();
     diagnostics.push(`CONSOLE ${message.type()} ${text}`);
-    console.error(`[HIGHFLY SMOKE ${message.type().toUpperCase()}]`, text);
+    console.error(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE ${message.type().toUpperCase()}]`, text);
   });
 
   await page.goto(`${BASE}/?gfx=low`, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -159,13 +164,13 @@ try {
     };
   });
 
-  console.log('[HIGHFLY SMOKE STATE]', JSON.stringify(state, null, 2));
+  console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE STATE]`, JSON.stringify(state, null, 2));
   if (!outcome || outcome.kind !== 'game' || state.fatalText) {
     throw new Error(
-      `HIGHFLY native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
+      `HIGHFLY ${MODE_LABEL} native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
     );
   }
-  console.log('[HIGHFLY SMOKE] Apariencia -> Clase -> world boot OK');
+  console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] Apariencia -> Clase -> world boot OK`);
 } finally {
   if (browser) await browser.close().catch(() => {});
   server.kill('SIGTERM');
