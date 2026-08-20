@@ -54,7 +54,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.0 Big Pass
+      - name: Apply HIGHFLY v0.6.1 Full Pass
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -70,12 +70,13 @@ jobs:
           node ../scripts/patch-highfly-v0.5.5-action-control.mjs
           node ../scripts/patch-highfly-v0.6.0-big-pass.mjs
           node ../scripts/patch-highfly-v0.6.0-compat.mjs
+          node ../scripts/patch-highfly-v0.6.1-full-pass.mjs
 
-      - name: Typecheck HIGHFLY v0.6.0
+      - name: Typecheck HIGHFLY v0.6.1
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY training and creator contracts
+      - name: Test HIGHFLY progression contracts
         working-directory: game
         run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts
 
@@ -102,14 +103,14 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.6.0_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.6.0_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
           df -h
 
       - name: Upload HIGHFLY APK
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-v0.6.0-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.6.0_DEBUG.apk
+          name: HIGHFLY-NEXT-CORE-v0.6.1-APK
+          path: output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
           if-no-files-found: error
           retention-days: 7
