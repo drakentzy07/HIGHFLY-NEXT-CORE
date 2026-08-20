@@ -103,6 +103,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.5.3-training-migration.mjs
           node ../scripts/patch-highfly-v0.6.6-creator-combat-flow.mjs
           node ../scripts/patch-highfly-v0.6.6.1-creator-stage.mjs
+          node ../scripts/patch-highfly-v0.6.6.2-creator-inline-stage.mjs
 
       - name: Typecheck HIGHFLY v0.6.6
         working-directory: game
@@ -155,7 +156,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.6.6: creador móvil real 50/50 medido a 915x412, preview 3D más cercano y grande, ficha de clase compacta sin cortar descripción; skills de combate con casteo/carga mientras el cazador se mueve y cadencia real del ataque básico 32% más rápida. Mantiene migración segura de rutinas, smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.6.6: creador móvil real 50/50 medido a 915x412 con escenario de preview controlado en runtime, preview 3D más cercano y grande, ficha de clase compacta sin cortar descripción; skills de combate con casteo/carga mientras el cazador se mueve y cadencia real del ataque básico 32% más rápida. Mantiene migración segura de rutinas, smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
