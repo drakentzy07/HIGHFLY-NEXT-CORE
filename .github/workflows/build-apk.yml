@@ -69,6 +69,7 @@ jobs:
           node ../scripts/patch-highfly-v0.5.4-player-origin-aim.mjs
           node ../scripts/patch-highfly-v0.5.5-action-control.mjs
           node ../scripts/patch-highfly-v0.6.0-big-pass.mjs
+          node ../scripts/patch-highfly-v0.6.0-compat.mjs
 
       - name: Typecheck HIGHFLY v0.6.0
         working-directory: game
