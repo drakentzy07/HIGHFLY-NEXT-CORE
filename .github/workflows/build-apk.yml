@@ -64,7 +64,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.2 Full Pass
+      - name: Apply HIGHFLY v0.6.3 Full Pass
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -83,14 +83,15 @@ jobs:
           node ../scripts/patch-highfly-v0.6.1-full-pass.mjs
           node ../scripts/patch-highfly-v0.6.1-moba-aim.mjs
           node ../scripts/patch-highfly-v0.6.2-creator-s23.mjs
+          node ../scripts/patch-highfly-v0.6.3-mobile-polish.mjs
 
-      - name: Typecheck HIGHFLY v0.6.2
+      - name: Typecheck HIGHFLY v0.6.3
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY progression + creator + mobile aim contracts
+      - name: Test HIGHFLY progression + creator + mobile aim + workout contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -119,9 +120,6 @@ jobs:
           ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
-      # Keep ONE rolling downloadable APK outside Actions artifact storage.
-      # Git history remains the source of truth for old versions, so any old build
-      # can be reproduced without retaining hundreds of MB per Actions run.
       - name: Publish rolling HIGHFLY test release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -133,14 +131,12 @@ jobs:
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --prerelease
+            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "HIGHFLY v0.6.3: creator móvil, apuntado tipo MOBA y entrenamiento real por ejercicios/series/RM/descansos."
           else
-            gh release create "$TAG" --title "$TITLE" --prerelease --notes "Última APK de prueba de HIGHFLY. Este asset se reemplaza en cada build válido."
+            gh release create "$TAG" --title "$TITLE" --prerelease --notes "HIGHFLY v0.6.3: creator móvil, apuntado tipo MOBA y entrenamiento real por ejercicios/series/RM/descansos."
           fi
           gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
 
-      # Only purge the old heavy Actions APKs AFTER the rolling Release upload
-      # succeeded, so a failed build never destroys the last known-good download.
       - name: Purge old HIGHFLY Actions APK artifacts
         if: success()
         env:
