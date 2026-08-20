@@ -5,6 +5,14 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: highfly-apk-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -13,6 +21,8 @@ jobs:
     steps:
       - name: Checkout HIGHFLY overlay
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Free runner disk space
         run: |
@@ -105,14 +115,37 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
-      - name: Upload HIGHFLY APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-NEXT-CORE-v0.6.2-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Publish rolling HIGHFLY test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="highfly-latest"
+          TITLE="HIGHFLY Latest Test APK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --prerelease
+          else
+            gh release create "$TAG" --title "$TITLE" --prerelease --notes "Última APK de prueba de HIGHFLY. Este asset se reemplaza en cada build válido."
+          fi
+          gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
+
+      - name: Purge old HIGHFLY Actions APK artifacts
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name | startswith("HIGHFLY-NEXT-CORE-")) | .id' \
+          | while read -r artifact_id; do
+              if [ -n "$artifact_id" ]; then
+                echo "Deleting old Actions artifact $artifact_id"
+                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+              fi
+            done
