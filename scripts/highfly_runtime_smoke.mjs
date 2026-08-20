@@ -53,16 +53,8 @@ try {
     ],
   });
   const page = await browser.newPage();
-  await page.setViewport({
-    width: 915,
-    height: 412,
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: true,
-  });
+  await page.setViewport({ width: 915, height: 412, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-  // ClaudeCraft catches renderer boot exceptions and turns them into a fatal overlay.
-  // Capture the Error object BEFORE that catch serializes it to a short user message.
   await page.evaluateOnNewDocument(() => {
     window.__highflySmokeCaught = [];
     const capture = (level, original) => (...args) => {
@@ -71,11 +63,7 @@ try {
           .map((arg) => {
             if (arg instanceof Error) return arg.stack || arg.message || String(arg);
             if (typeof arg === 'string') return arg;
-            try {
-              return JSON.stringify(arg);
-            } catch {
-              return String(arg);
-            }
+            try { return JSON.stringify(arg); } catch { return String(arg); }
           })
           .join(' ');
         window.__highflySmokeCaught.push(`${level.toUpperCase()} ${text}`);
@@ -116,15 +104,12 @@ try {
     }
   });
 
-  // v0.6.6: measure the REAL 915x412 layout. A 70/30 regression must fail CI
-  // even if a textual CSS contract happens to pass.
   const appearanceGeometry = await page.evaluate(() => {
     const root = document.getElementById('offline-select');
-    const layout = root?.querySelector('.charselect-layout');
     const left = root?.querySelector('.charselect-col-left');
     const right = root?.querySelector('.charselect-col-right');
     const preview = root?.querySelector('#offline-preview-container');
-    if (!layout || !left || !right || !preview) return null;
+    if (!left || !right || !preview) return null;
     const lr = left.getBoundingClientRect();
     const rr = right.getBoundingClientRect();
     const pr = preview.getBoundingClientRect();
@@ -137,21 +122,18 @@ try {
     };
   });
   console.log('[HIGHFLY CREATOR APPEARANCE GEOMETRY]', appearanceGeometry);
-  if (
-    !appearanceGeometry ||
-    appearanceGeometry.step !== 'appearance' ||
-    Math.abs(appearanceGeometry.leftWidth - appearanceGeometry.rightWidth) > 12 ||
-    appearanceGeometry.previewHeight < appearanceGeometry.rightHeight * 0.88
-  ) {
-    throw new Error(`HIGHFLY creator Appearance is not true 50/50: ${JSON.stringify(appearanceGeometry)}`);
+  if (!appearanceGeometry || appearanceGeometry.step !== 'appearance') {
+    throw new Error(`HIGHFLY creator did not enter Appearance correctly: ${JSON.stringify(appearanceGeometry)}`);
+  }
+  if (Math.abs(appearanceGeometry.leftWidth - appearanceGeometry.rightWidth) > 12) {
+    throw new Error(`HIGHFLY creator Appearance columns are not true 50/50: ${JSON.stringify(appearanceGeometry)}`);
+  }
+  if (appearanceGeometry.previewHeight < appearanceGeometry.rightHeight * 0.88) {
+    throw new Error(`HIGHFLY creator preview does not fill the right half: ${JSON.stringify(appearanceGeometry)}`);
   }
 
-  // Exercise the actual HIGHFLY split creator, not ClaudeCraft's legacy shortcut.
   await page.evaluate(() => document.querySelector('[data-hf-creator-next]')?.click());
-  await page.waitForSelector('#offline-select .mini-class[data-class="warrior"]', {
-    visible: true,
-    timeout: 15000,
-  });
+  await page.waitForSelector('#offline-select .mini-class[data-class="warrior"]', { visible: true, timeout: 15000 });
   await page.evaluate(() => document.querySelector('#offline-select .mini-class[data-class="warrior"]')?.click());
   await page.waitForSelector('#btn-start-offline', { visible: true, timeout: 15000 });
 
@@ -201,8 +183,7 @@ try {
     .waitForFunction(
       () => {
         const fatal = document.querySelector('#fatal-overlay, .fatal-overlay');
-        const fatalText =
-          fatal && getComputedStyle(fatal).display !== 'none' ? (fatal.textContent ?? '').trim() : '';
+        const fatalText = fatal && getComputedStyle(fatal).display !== 'none' ? (fatal.textContent ?? '').trim() : '';
         if (fatalText) return { kind: 'fatal', fatalText };
         if (window.__game?.sim?.player) return { kind: 'game', fatalText: '' };
         return false;
@@ -224,9 +205,7 @@ try {
       playerClass: window.__game?.sim?.player?.templateId ?? null,
       bodyClass: document.body.className,
       url: location.href,
-      captured: Array.isArray(window.__highflySmokeCaught)
-        ? window.__highflySmokeCaught.slice(-20)
-        : [],
+      captured: Array.isArray(window.__highflySmokeCaught) ? window.__highflySmokeCaught.slice(-20) : [],
     };
   });
 
