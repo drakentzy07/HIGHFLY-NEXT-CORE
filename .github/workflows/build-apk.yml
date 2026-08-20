@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.4 Full Pass
+      - name: Apply HIGHFLY v0.6.5 Full Pass
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -97,14 +97,15 @@ jobs:
           node ../scripts/patch-highfly-v0.6.4.1-lifecycle-fix.mjs
           node ../scripts/patch-highfly-v0.6.4.2-native-bundle.mjs
           node ../scripts/patch-highfly-v0.6.4.3-css-fix.mjs
+          node ../scripts/patch-highfly-v0.6.5-action-rm-creator.mjs
 
-      - name: Typecheck HIGHFLY v0.6.4
+      - name: Typecheck HIGHFLY v0.6.5
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY progression + creator + free aim + workout contracts
+      - name: Test HIGHFLY progression + creator + free aim + workout + v0.6.5 contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -143,7 +144,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.6.4: Entrenamiento reemplaza Discord de forma nativa; apuntado manual libre que puede fallar/castear al mundo sin convertir la skill en básico; creador móvil dividido en Apariencia y Clase; mantiene logger real, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.6.5: creador móvil separado estructuralmente en Apariencia y Clase; ficha de clase legible; ataque básico con intención persistente sin reiniciar movimiento; Entrenamiento con pestaña RM, cargas derivadas de marcas reales y días HIGHFLY; acceso de Entrenamiento con branding propio. Mantiene free aim, logger, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
