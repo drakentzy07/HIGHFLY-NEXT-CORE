@@ -85,6 +85,7 @@ jobs:
           node ../scripts/patch-highfly-v0.6.2-creator-s23.mjs
           node ../scripts/patch-highfly-v0.6.3-precompat.mjs
           node ../scripts/patch-highfly-v0.6.3-mobile-polish.mjs
+          node ../scripts/patch-highfly-v0.6.3-test-contracts.mjs
 
       - name: Typecheck HIGHFLY v0.6.3
         working-directory: game
