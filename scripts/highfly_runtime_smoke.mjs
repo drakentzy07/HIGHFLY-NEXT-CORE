@@ -162,8 +162,6 @@ try {
   await page.evaluate(() => document.querySelector('#offline-select .mini-class[data-class="warrior"]')?.click());
   await page.waitForSelector('#btn-start-offline', { visible: true, timeout: 15000 });
 
-  // Class details are rendered by ClaudeCraft after selection. Do not measure a
-  // transient empty sheet: wait for meaningful detail text / HIGHFLY description.
   await page.waitForFunction(
     () => {
       const root = document.getElementById('offline-select');
@@ -171,7 +169,7 @@ try {
       if (!root || root.dataset.hfCreatorStep !== 'class' || !details) return false;
       const visible = getComputedStyle(details).display !== 'none';
       const text = (details.textContent ?? '').trim();
-      return visible && text.length > 20 && Boolean(details.querySelector('.hf-class-desc'));
+      return visible && text.length > 20 && Boolean(details.querySelector(':is(.hf-class-desc, .hf-class-desc-v062)'));
     },
     { timeout: 10000 },
   ).catch(() => {});
@@ -182,7 +180,7 @@ try {
     const left = root?.querySelector('.charselect-col-left');
     const right = root?.querySelector('.charselect-col-right');
     const details = root?.querySelector('#offline-class-details');
-    const desc = root?.querySelector('.hf-class-desc');
+    const desc = root?.querySelector(':is(.hf-class-desc, .hf-class-desc-v062)');
     const preview = root?.querySelector('#offline-preview-container');
     const base = {
       ready: Boolean(left && right && details && desc && preview),
