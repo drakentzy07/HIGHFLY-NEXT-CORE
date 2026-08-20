@@ -54,7 +54,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.1 Full Pass
+      - name: Apply HIGHFLY v0.6.2 Full Pass
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -72,14 +72,15 @@ jobs:
           node ../scripts/patch-highfly-v0.6.0-compat.mjs
           node ../scripts/patch-highfly-v0.6.1-full-pass.mjs
           node ../scripts/patch-highfly-v0.6.1-moba-aim.mjs
+          node ../scripts/patch-highfly-v0.6.2-creator-s23.mjs
 
-      - name: Typecheck HIGHFLY v0.6.1
+      - name: Typecheck HIGHFLY v0.6.2
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Test HIGHFLY progression + mobile aim contracts
+      - name: Test HIGHFLY progression + creator + mobile aim contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -104,14 +105,14 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
           df -h
 
       - name: Upload HIGHFLY APK
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-v0.6.1-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.6.1_DEBUG.apk
+          name: HIGHFLY-NEXT-CORE-v0.6.2-APK
+          path: output/HIGHFLY_NEXT_CORE_v0.6.2_DEBUG.apk
           if-no-files-found: error
           retention-days: 7
