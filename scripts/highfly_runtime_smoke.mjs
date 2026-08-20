@@ -113,12 +113,33 @@ try {
     const lr = left.getBoundingClientRect();
     const rr = right.getBoundingClientRect();
     const pr = preview.getBoundingClientRect();
+    const ps = getComputedStyle(preview);
+    const rs = getComputedStyle(right);
     return {
       step: root?.dataset.hfCreatorStep ?? null,
       leftWidth: lr.width,
       rightWidth: rr.width,
       rightHeight: rr.height,
       previewHeight: pr.height,
+      previewTopCoord: pr.top,
+      previewBottomCoord: pr.bottom,
+      rightTopCoord: rr.top,
+      rightBottomCoord: rr.bottom,
+      previewPosition: ps.position,
+      previewTop: ps.top,
+      previewRight: ps.right,
+      previewBottom: ps.bottom,
+      previewLeft: ps.left,
+      previewCssHeight: ps.height,
+      previewMinHeight: ps.minHeight,
+      previewMaxHeight: ps.maxHeight,
+      previewInlineStyle: preview.getAttribute('style') ?? '',
+      rightPosition: rs.position,
+      rightDisplay: rs.display,
+      rightCssHeight: rs.height,
+      rightInlineStyle: right.getAttribute('style') ?? '',
+      offsetParentId: preview.offsetParent?.id ?? null,
+      offsetParentClass: preview.offsetParent?.className ?? null,
     };
   });
   console.log('[HIGHFLY CREATOR APPEARANCE GEOMETRY]', appearanceGeometry);
