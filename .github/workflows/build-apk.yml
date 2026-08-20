@@ -119,6 +119,9 @@ jobs:
           ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
+      # Keep ONE rolling downloadable APK outside Actions artifact storage.
+      # Git history remains the source of truth for old versions, so any old build
+      # can be reproduced without retaining hundreds of MB per Actions run.
       - name: Publish rolling HIGHFLY test release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -136,6 +139,8 @@ jobs:
           fi
           gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
 
+      # Only purge the old heavy Actions APKs AFTER the rolling Release upload
+      # succeeded, so a failed build never destroys the last known-good download.
       - name: Purge old HIGHFLY Actions APK artifacts
         if: success()
         env:
