@@ -16,17 +16,16 @@ function replaceRequired(source, from, to, label) {
 
 // ---------------------------------------------------------------------------
 // 1) CREATOR: TRUE 50 / 50 LANDSCAPE COMPOSITION
-// The old v0.6.3 phone rule explicitly authored 70/30. Appending another vague
-// size tweak never changed the composition the player actually saw. v0.6.6 makes
-// the two columns equal, lets Appearance dedicate the entire right half to the
-// live character, and gives Class a compact but readable preview/details split.
+// The old v0.6.3 phone rule explicitly authored 70/30. v0.6.6 makes the two
+// columns equal and also neutralizes ClaudeCraft's sticky/mobile preview sizing,
+// so the live character really fills the right half instead of leaving dead space.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/styles/highfly.native.css';
   let css = read(path);
   css += `
 
-/* HIGHFLY v0.6.6 — TRUE 50/50 mobile creator + readable class sheet. */
+/* HIGHFLY v0.6.6 — TRUE 50/50 mobile creator + full-height preview stage. */
 @media (orientation: landscape) and (max-height: 520px) {
   body.native-app #offline-select.highfly-native-creator[data-hf-creator-steps="2"] .charselect-layout {
     display: grid !important;
@@ -43,22 +42,39 @@ function replaceRequired(source, from, to, label) {
     min-width: 0 !important;
     max-width: none !important;
     min-height: 0 !important;
+    height: 100% !important;
+    align-self: stretch !important;
   }
 
   body.native-app #offline-select[data-hf-creator-step="appearance"] .charselect-col-right {
     display: grid !important;
     grid-template-rows: minmax(0, 1fr) !important;
     align-items: stretch !important;
+    justify-items: stretch !important;
     min-height: 0 !important;
+    height: 100% !important;
   }
 
+  /* ClaudeCraft mobile makes this preview sticky/top-offset with a fixed vh height.
+     HIGHFLY Appearance instead owns the whole right column as one clean stage. */
   body.native-app #offline-select[data-hf-creator-step="appearance"] #offline-preview-container {
-    grid-row: 1 / -1 !important;
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    order: 0 !important;
+    z-index: 1 !important;
+    grid-row: 1 !important;
+    align-self: stretch !important;
+    justify-self: stretch !important;
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
     overflow: hidden !important;
+  }
+
+  body.native-app #offline-select[data-hf-creator-step="appearance"] #offline-class-details {
+    display: none !important;
   }
 
   body.native-app #offline-select[data-hf-creator-step="appearance"] #offline-appearance {
@@ -70,23 +86,40 @@ function replaceRequired(source, from, to, label) {
 
   body.native-app #offline-select[data-hf-creator-step="class"] .charselect-col-right {
     display: grid !important;
-    grid-template-rows: minmax(142px, 45%) minmax(0, 55%) !important;
+    grid-template-rows: minmax(135px, 5fr) minmax(0, 6fr) !important;
     gap: 7px !important;
     min-height: 0 !important;
+    height: 100% !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
   }
 
   body.native-app #offline-select[data-hf-creator-step="class"] #offline-preview-container {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    order: 0 !important;
+    z-index: 1 !important;
+    grid-row: 1 !important;
+    align-self: stretch !important;
+    justify-self: stretch !important;
     width: 100% !important;
-    height: 100% !important;
-    min-height: 142px !important;
+    height: auto !important;
+    min-height: 135px !important;
     max-height: none !important;
     overflow: hidden !important;
   }
 
   body.native-app #offline-select[data-hf-creator-step="class"] #offline-class-details {
+    display: block !important;
+    grid-row: 2 !important;
+    position: relative !important;
+    inset: auto !important;
+    order: 0 !important;
     width: 100% !important;
     min-width: 0 !important;
     min-height: 0 !important;
+    height: auto !important;
     max-height: none !important;
     overflow: auto !important;
     padding: 8px 10px !important;
@@ -138,9 +171,6 @@ function replaceRequired(source, from, to, label) {
 
 // ---------------------------------------------------------------------------
 // 2) CREATOR PREVIEW: CAMERA CLOSER, NOT A STRETCHED CANVAS
-// The live turntable uses PREVIEW_FRAMING.sheet. Move the actual Three camera in
-// rather than CSS-scaling its canvas so the model remains crisp and correctly
-// centered while the right half becomes much larger.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/render/characters/preview_framing.ts';
@@ -156,10 +186,6 @@ function replaceRequired(source, from, to, label) {
 
 // ---------------------------------------------------------------------------
 // 3) COMBAT CASTS MOVE WITH THE PLAYER
-// ClaudeCraft deliberately cancels a hard cast when movement begins unless an
-// ability/talent opts into castWhileMoving. HIGHFLY is an action RPG: combat
-// skills keep charging/channeling while locomotion continues. Gathering/crafting
-// interactions remain stationary so world interactions do not become drive-bys.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/sim/player_motion.ts';
@@ -178,9 +204,6 @@ function replaceRequired(source, from, to, label) {
     'player motion remaining cast constants import',
   );
 
-  // The native HIGHFLY mobility patch already owns BACKPEDAL_MULT and the dash
-  // constants. Anchor after the last HIGHFLY dash constant instead of looking
-  // for ClaudeCraft's original BACKPEDAL_MULT = 0.65, which no longer exists.
   const helperAnchor = "export const HIGHFLY_DASH_SPEED_MULT = 2.6;";
   const helper = `${helperAnchor}\n\nconst HIGHFLY_STATIONARY_CASTS = new Set<string>([\n  CRAFT_CAST_ID,\n  DISENCHANT_CAST_ID,\n  ENCHANT_CAST_ID,\n  FISHING_CAST_ID,\n  GATHER_CAST_ID,\n  SALVAGE_CAST_ID,\n  TOOL_RECHARGE_CAST_ID,\n]);\n\nfunction highflyCombatCastMoves(abilityId: string): boolean {\n  return !HIGHFLY_STATIONARY_CASTS.has(abilityId);\n}`;
   source = replaceRequired(source, helperAnchor, helper, 'HIGHFLY stationary cast helper');
@@ -193,10 +216,6 @@ function replaceRequired(source, from, to, label) {
 
 // ---------------------------------------------------------------------------
 // 4) BASIC ATTACK CADENCE
-// Keep the simulation-owned swing timer (no artificial pointer spam), but make
-// HIGHFLY's basic combat read as action combat instead of classic-MMO white-hit
-// pacing. 0.68 is deliberately noticeable without turning every weapon into a
-// machine gun; balance can be tuned independently once the feel is validated.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/sim/combat/auto_attack.ts';
@@ -235,8 +254,8 @@ function replaceRequired(source, from, to, label) {
 // ---------------------------------------------------------------------------
 {
   const path = 'tests/highfly_v066_creator_combat_flow.test.ts';
-  const content = `import fs from 'node:fs';\nimport { describe, expect, it } from 'vitest';\n\ndescribe('HIGHFLY v0.6.6 creator + combat flow', () => {\n  it('uses a true 50/50 phone-landscape creator and a closer real preview camera', () => {\n    const css = fs.readFileSync('src/styles/highfly.native.css', 'utf8');\n    const framing = fs.readFileSync('src/render/characters/preview_framing.ts', 'utf8');\n    expect(css).toContain('grid-template-columns: minmax(0, 50%) minmax(0, 50%) !important');\n    expect(css).toContain('grid-template-rows: minmax(0, 1fr) !important');\n    expect(css).toContain('grid-template-rows: minmax(142px, 45%) minmax(0, 55%) !important');\n    expect(framing).toContain("sheet: { y: 1.38, z: 3.8, lookY: 1.25 }");\n  });\n\n  it('keeps combat hard-casts alive while moving but leaves world interactions stationary', () => {\n    const motion = fs.readFileSync('src/sim/player_motion.ts', 'utf8');\n    expect(motion).toContain('const HIGHFLY_STATIONARY_CASTS = new Set<string>');\n    expect(motion).toContain('highflyCombatCastMoves(p.castingAbility)');\n    expect(motion).toContain('FISHING_CAST_ID');\n    expect(motion).toContain('GATHER_CAST_ID');\n    expect(motion).toContain('CRAFT_CAST_ID');\n  });\n\n  it('shortens the real simulation swing interval instead of pointer-spamming attacks', () => {\n    const attacks = fs.readFileSync('src/sim/combat/auto_attack.ts', 'utf8');\n    const hud = fs.readFileSync('src/ui/hud.ts', 'utf8');\n    expect(attacks).toContain('HIGHFLY_AUTO_ATTACK_INTERVAL_MULT = 0.68');\n    expect(attacks).toContain('* HIGHFLY_AUTO_ATTACK_INTERVAL_MULT');\n    expect(hud).not.toContain('highflyAttackHoldTimer = window.setInterval');\n  });\n});\n`;
+  const content = `import fs from 'node:fs';\nimport { describe, expect, it } from 'vitest';\n\ndescribe('HIGHFLY v0.6.6 creator + combat flow', () => {\n  it('uses a true 50/50 phone-landscape creator and a full-height real preview stage', () => {\n    const css = fs.readFileSync('src/styles/highfly.native.css', 'utf8');\n    const framing = fs.readFileSync('src/render/characters/preview_framing.ts', 'utf8');\n    expect(css).toContain('grid-template-columns: minmax(0, 50%) minmax(0, 50%) !important');\n    expect(css).toContain('position: relative !important');\n    expect(css).toContain('top: auto !important');\n    expect(css).toContain('grid-template-rows: minmax(135px, 5fr) minmax(0, 6fr) !important');\n    expect(framing).toContain("sheet: { y: 1.38, z: 3.8, lookY: 1.25 }");\n  });\n\n  it('keeps combat hard-casts alive while moving but leaves world interactions stationary', () => {\n    const motion = fs.readFileSync('src/sim/player_motion.ts', 'utf8');\n    expect(motion).toContain('const HIGHFLY_STATIONARY_CASTS = new Set<string>');\n    expect(motion).toContain('highflyCombatCastMoves(p.castingAbility)');\n    expect(motion).toContain('FISHING_CAST_ID');\n    expect(motion).toContain('GATHER_CAST_ID');\n    expect(motion).toContain('CRAFT_CAST_ID');\n  });\n\n  it('shortens the real simulation swing interval instead of pointer-spamming attacks', () => {\n    const attacks = fs.readFileSync('src/sim/combat/auto_attack.ts', 'utf8');\n    const hud = fs.readFileSync('src/ui/hud.ts', 'utf8');\n    expect(attacks).toContain('HIGHFLY_AUTO_ATTACK_INTERVAL_MULT = 0.68');\n    expect(attacks).toContain('* HIGHFLY_AUTO_ATTACK_INTERVAL_MULT');\n    expect(hud).not.toContain('highflyAttackHoldTimer = window.setInterval');\n  });\n});\n`;
   write(path, content);
 }
 
-console.log('[HIGHFLY v0.6.6] true 50/50 creator + mobile combat casting + faster basic cadence applied.');
+console.log('[HIGHFLY v0.6.6] true 50/50 creator + full preview + mobile combat casting + faster basic cadence applied.');
