@@ -67,9 +67,11 @@ try {
           })
           .join(' ');
         window.__highflySmokeCaught.push(`${level.toUpperCase()} ${text}`);
+        if (window.__highflySmokeCaught.length > 120) window.__highflySmokeCaught.shift();
       } catch {}
       original(...args);
     };
+    console.info = capture('info', console.info.bind(console));
     console.warn = capture('warn', console.warn.bind(console));
     console.error = capture('error', console.error.bind(console));
   });
@@ -81,8 +83,9 @@ try {
     console.error(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE PAGEERROR]`, text);
   });
   page.on('console', (message) => {
-    if (message.type() !== 'error' && message.type() !== 'warning') return;
     const text = message.text();
+    const bootDiagnostic = text.includes('[entry-diag]') || text.includes('[entry-guard]');
+    if (message.type() !== 'error' && message.type() !== 'warning' && !bootDiagnostic) return;
     diagnostics.push(`CONSOLE ${message.type()} ${text}`);
     console.error(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE ${message.type().toUpperCase()}]`, text);
   });
@@ -276,6 +279,31 @@ try {
   const state = await page.evaluate(() => {
     const root = document.getElementById('offline-select');
     const fatal = document.querySelector('#fatal-overlay, .fatal-overlay');
+    const probeRaw = localStorage.getItem('woc_entry_probe');
+    let entryProbe = null;
+    try {
+      entryProbe = probeRaw ? JSON.parse(probeRaw) : null;
+    } catch {
+      entryProbe = { malformed: true, raw: probeRaw };
+    }
+    const loadingNodes = [...document.querySelectorAll('[id*="loading"], [class*="loading"]')]
+      .map((el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          tag: el.tagName,
+          id: el.id || null,
+          className: typeof el.className === 'string' ? el.className : null,
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          text: (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 220),
+        };
+      })
+      .filter((item) => item.width > 0 || item.height > 0 || item.text)
+      .slice(0, 24);
     return {
       outcome: Boolean(window.__game?.sim?.player) ? 'game' : 'no-game',
       fatalText: fatal?.textContent?.trim() ?? '',
@@ -284,14 +312,18 @@ try {
       playerClass: window.__game?.sim?.player?.templateId ?? null,
       bodyClass: document.body.className,
       url: location.href,
-      captured: Array.isArray(window.__highflySmokeCaught) ? window.__highflySmokeCaught.slice(-20) : [],
+      entryProbe,
+      entryProbeRaw: probeRaw,
+      loadingNodes,
+      captured: Array.isArray(window.__highflySmokeCaught) ? window.__highflySmokeCaught.slice(-80) : [],
     };
   });
 
   console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE STATE]`, JSON.stringify(state, null, 2));
   if (!outcome || outcome.kind !== 'game' || state.fatalText) {
+    const checkpoint = state.entryProbe?.checkpoint ?? 'NO_CHECKPOINT';
     throw new Error(
-      `HIGHFLY ${MODE_LABEL} native offline boot failed. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
+      `HIGHFLY ${MODE_LABEL} native offline boot failed at checkpoint=${checkpoint}. Outcome=${JSON.stringify(outcome)} State=${JSON.stringify(state, null, 2)}\n${diagnostics.join('\n\n')}`,
     );
   }
   console.log(`[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] 50/50 Apariencia -> Clase -> world boot OK`);
