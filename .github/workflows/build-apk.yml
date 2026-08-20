@@ -105,6 +105,12 @@ jobs:
         working-directory: game
         run: pnpm run check:ts
 
+      - name: Runtime smoke Apariencia → Clase → Mundo
+        working-directory: game
+        run: |
+          cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
+          node scripts/highfly_runtime_smoke.mjs
+
       - name: Test HIGHFLY progression + creator + free aim + workout + v0.6.5 contracts
         working-directory: game
         run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts
