@@ -14,33 +14,33 @@ fs.writeFileSync(lifecyclePath, source, 'utf8');
 
 // v0.7.1 intentionally reallocates a few pixels from the class preview to the
 // dossier so all six stats and the class description fit on phone landscape.
-// Keep the old v0.6.6 regression test useful, but align its literal geometry
-// expectations with the current runtime-owned layout instead of failing on an
-// obsolete 128/143 split that the real smoke test no longer uses.
+// v0.6.6.2 added only TWO literal runtime-geometry assertions to the inherited
+// test: the right-column split and the dossier minimum height. Align exactly
+// those two contracts; do not invent or require anchors that never existed.
 const legacyCreatorTestPath = 'tests/highfly_v066_creator_combat_flow.test.ts';
 let legacyCreatorTest = fs.readFileSync(legacyCreatorTestPath, 'utf8');
-const creatorContractReplacements = [
-  [
-    "important(right, 'grid-template-rows', 'minmax(128px, 0.92fr) minmax(143px, 1.08fr)')",
-    "important(right, 'grid-template-rows', 'minmax(120px, 0.88fr) minmax(158px, 1.12fr)')",
-  ],
-  [
-    "important(refs.preview, 'min-height', '128px')",
-    "important(refs.preview, 'min-height', '120px')",
-  ],
-  [
-    "important(refs.classDetails, 'min-height', '143px')",
-    "important(refs.classDetails, 'min-height', '158px')",
-  ],
-];
 
-for (const [oldContract, currentContract] of creatorContractReplacements) {
-  if (legacyCreatorTest.includes(oldContract)) {
-    legacyCreatorTest = legacyCreatorTest.replace(oldContract, currentContract);
-  } else if (!legacyCreatorTest.includes(currentContract)) {
-    throw new Error(`Anchor not found: legacy creator contract ${oldContract}`);
-  }
+const legacyGridContract =
+  "important(right, 'grid-template-rows', 'minmax(128px, 0.92fr) minmax(143px, 1.08fr)')";
+const currentGridContract =
+  "important(right, 'grid-template-rows', 'minmax(120px, 0.88fr) minmax(158px, 1.12fr)')";
+const legacyDetailsContract =
+  "important(refs.classDetails, 'min-height', '143px')";
+const currentDetailsContract =
+  "important(refs.classDetails, 'min-height', '158px')";
+
+if (legacyCreatorTest.includes(legacyGridContract)) {
+  legacyCreatorTest = legacyCreatorTest.replace(legacyGridContract, currentGridContract);
+} else if (!legacyCreatorTest.includes(currentGridContract)) {
+  throw new Error('Anchor not found: inherited creator grid contract');
 }
+
+if (legacyCreatorTest.includes(legacyDetailsContract)) {
+  legacyCreatorTest = legacyCreatorTest.replace(legacyDetailsContract, currentDetailsContract);
+} else if (!legacyCreatorTest.includes(currentDetailsContract)) {
+  throw new Error('Anchor not found: inherited creator dossier contract');
+}
+
 fs.writeFileSync(legacyCreatorTestPath, legacyCreatorTest, 'utf8');
 
 const testPath = 'tests/highfly_v0711_fx_type_fix.test.ts';
@@ -57,7 +57,6 @@ describe('HIGHFLY v0.7.1.1 manual miss FX typing', () => {
   it('keeps the inherited v0.6.6 creator contract aligned with the current phone layout', () => {
     const creatorTest = fs.readFileSync('tests/highfly_v066_creator_combat_flow.test.ts', 'utf8');
     expect(creatorTest).toContain("minmax(120px, 0.88fr) minmax(158px, 1.12fr)");
-    expect(creatorTest).toContain("important(refs.preview, 'min-height', '120px')");
     expect(creatorTest).toContain("important(refs.classDetails, 'min-height', '158px')");
     expect(creatorTest).not.toContain("minmax(128px, 0.92fr) minmax(143px, 1.08fr)");
   });
