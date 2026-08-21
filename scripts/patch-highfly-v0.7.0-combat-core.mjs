@@ -72,6 +72,21 @@ function replaceRequired(source, needle, replacement, label) {
   write(path, source);
 }
 
+// v0.7 intentionally supersedes the v0.6.6 cadence value. Keep the older
+// regression suite active for creator/casting coverage, but align only its
+// cadence assertion with the new simulation-owned recovery value.
+{
+  const path = 'tests/highfly_v066_creator_combat_flow.test.ts';
+  let source = read(path);
+  source = replaceRequired(
+    source,
+    'HIGHFLY_AUTO_ATTACK_INTERVAL_MULT = 0.68',
+    'HIGHFLY_AUTO_ATTACK_INTERVAL_MULT = 0.60',
+    'v0.6.6 cadence contract alignment',
+  );
+  write(path, source);
+}
+
 // ---------------------------------------------------------------------------
 // 4) REGRESSION CONTRACTS
 // ---------------------------------------------------------------------------
