@@ -241,7 +241,7 @@ try {
   if (Math.abs(classGeometry.leftWidth - classGeometry.rightWidth) > 12) {
     throw new Error(`HIGHFLY creator Class columns are not true 50/50: ${JSON.stringify(classGeometry)}`);
   }
-  if (classGeometry.previewHeight < 125 || classGeometry.detailsHeight < 140) {
+  if (classGeometry.previewHeight < 115 || classGeometry.detailsHeight < 150) {
     throw new Error(`HIGHFLY creator Class preview/details split is too small: ${JSON.stringify(classGeometry)}`);
   }
   if (classGeometry.detailsTop < classGeometry.previewBottom + 3) {
