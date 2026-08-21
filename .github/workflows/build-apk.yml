@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.6.6 Full Pass
+      - name: Apply HIGHFLY v0.7.0 Combat Core
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -104,8 +104,9 @@ jobs:
           node ../scripts/patch-highfly-v0.6.6-creator-combat-flow.mjs
           node ../scripts/patch-highfly-v0.6.6.1-creator-stage.mjs
           node ../scripts/patch-highfly-v0.6.6.2-creator-inline-stage.mjs
+          node ../scripts/patch-highfly-v0.7.0-combat-core.mjs
 
-      - name: Typecheck HIGHFLY v0.6.6
+      - name: Typecheck HIGHFLY v0.7.0
         working-directory: game
         run: pnpm run check:ts
 
@@ -115,9 +116,9 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.6.6 progression + creator + mobile combat
+      - name: Test HIGHFLY v0.7.0 creator + progression + combat
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -156,7 +157,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.6.6: creador móvil real 50/50 medido a 915x412 con escenario de preview controlado en runtime, preview 3D más cercano y grande, ficha de clase compacta sin cortar descripción; skills de combate con casteo/carga mientras el cazador se mueve y cadencia real del ataque básico 32% más rápida. Mantiene migración segura de rutinas, smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, free aim, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.7.0 Combat Core: conserva el checkpoint estable Build #91 y suma smart tap restringido, prioridad dinámica preparada para cercano/menor HP/menor %HP, drag manual con microasistencia de sólo 7 grados, free cast hacia adelante sin target obligatorio, GCD de combate 25% más corto, casteo móvil y ataque básico al 60% del intervalo original. Mantiene creador 50/50, ficha completa, smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, telegraphs MOBA y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
