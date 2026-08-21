@@ -54,11 +54,12 @@ describe('HIGHFLY v0.7.1.1 manual miss FX typing', () => {
     expect(lifecycle).not.toContain("fx: ability.projectileFx ?? 'burst'");
   });
 
-  it('keeps the inherited v0.6.6 creator contract aligned with the current phone layout', () => {
+  it('keeps the inherited creator contract aligned with the final phone layout', () => {
     const creatorTest = fs.readFileSync('tests/highfly_v066_creator_combat_flow.test.ts', 'utf8');
-    expect(creatorTest).toContain("minmax(120px, 0.88fr) minmax(158px, 1.12fr)");
-    expect(creatorTest).toContain("important(refs.classDetails, 'min-height', '158px')");
+    expect(creatorTest).toContain("102px minmax(0, 1fr)");
+    expect(creatorTest).toContain("important(refs.classDetails, 'min-height', '0')");
     expect(creatorTest).not.toContain("minmax(128px, 0.92fr) minmax(143px, 1.08fr)");
+    expect(creatorTest).not.toContain("minmax(120px, 0.88fr) minmax(158px, 1.12fr)");
   });
 });
 `;
