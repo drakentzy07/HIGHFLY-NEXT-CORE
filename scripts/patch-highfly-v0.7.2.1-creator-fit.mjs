@@ -64,4 +64,19 @@ css += `
 `;
 
 fs.writeFileSync(path, css, 'utf8');
-console.log('[HIGHFLY v0.7.2.1] compact class dossier fit applied without changing geometry or combat.');
+
+// v0.7.2 intentionally replaced the old angular micro-assist with a physical
+// world-space lane. Keep the v0.7.0 regression suite enabled, but align its one
+// superseded assertion with the newer manual-aim contract instead of requiring
+// both mutually exclusive implementations at the same time.
+const combatCoreTestPath = 'tests/highfly_v070_combat_core.test.ts';
+let combatCoreTest = fs.readFileSync(combatCoreTestPath, 'utf8');
+const staleManualAimContract = `    expect(hud).toContain("const maxAngle = profile.shape === 'cone'");`;
+const laneManualAimContract = `    expect(hud).toContain('highflyDirectionalLaneMetrics(player.pos, entity.pos, aimFacing)');\n    expect(hud).not.toContain("const maxAngle = profile.shape === 'cone'");`;
+if (!combatCoreTest.includes(staleManualAimContract)) {
+  throw new Error('Anchor not found: v0.7.0 superseded manual-aim contract');
+}
+combatCoreTest = combatCoreTest.replace(staleManualAimContract, laneManualAimContract);
+fs.writeFileSync(combatCoreTestPath, combatCoreTest, 'utf8');
+
+console.log('[HIGHFLY v0.7.2.1] compact class dossier fit + v0.7.2 lane-aim regression alignment applied.');
