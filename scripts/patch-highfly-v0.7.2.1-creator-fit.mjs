@@ -263,8 +263,8 @@ smoke = replaceRequired(
   'smoke class panel containment',
 );
 smoke = smoke.replace(
-  `[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] 50/50 Apariencia -> Clase -> world boot OK`,
-  `[HIGHFLY ${MODE_LABEL.toUpperCase()} SMOKE] Apariencia 50/50 -> Clase 42/58 -> world boot OK`,
+  '50/50 Apariencia -> Clase -> world boot OK',
+  'Apariencia 50/50 -> Clase 42/58 -> world boot OK',
 );
 fs.writeFileSync(smokePath, smoke, 'utf8');
 
