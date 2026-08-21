@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.7.1.1 Combat Matrix + Creator
+      - name: Apply HIGHFLY v0.7.2 Lane Aim + Creator
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -107,8 +107,9 @@ jobs:
           node ../scripts/patch-highfly-v0.7.0-combat-core.mjs
           node ../scripts/patch-highfly-v0.7.1-combat-matrix-creator.mjs
           node ../scripts/patch-highfly-v0.7.1.1-fx-type-fix.mjs
+          node ../scripts/patch-highfly-v0.7.2-lane-aim-creator.mjs
 
-      - name: Typecheck HIGHFLY v0.7.1.1
+      - name: Typecheck HIGHFLY v0.7.2
         working-directory: game
         run: pnpm run check:ts
 
@@ -118,9 +119,9 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.7.1.1 creator + progression + combat matrix
+      - name: Test HIGHFLY v0.7.2 creator + progression + combat matrix
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -159,7 +160,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.7.1.1: mantiene el Combat Core v0.7.0 y el free-aim sistémico v0.7.1 para habilidades hostiles dirigidas, incluidos builders y finishers del Pícaro, sin auto-retarget cuando el drag falla. Corrige el FX de impacto de miss manual para usar un tipo compatible con spellfxAt sin alterar gameplay ni proyectiles. Conserva contratos especiales de target para cargas, tame/dispel/resurrección y matriz de regresión para las 9 clases. Reordena el creador móvil: CTA Entrar al Mundo integrado a la columna de clase, ficha derecha más legible, stats 3x2 y scroll seguro. Mantiene smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, telegraphs MOBA, GCD v0.7 y dash con colisión."
+          NOTES="HIGHFLY v0.7.2: conserva la base verde #104 y reemplaza la micro-asistencia angular del drag por colisión real con un corredor/cono en mundo. El facing manual manda aunque el personaje estuviera mirando al lado opuesto; un target dentro del corredor y rango puede ser golpeado, fuera del corredor el cast falla de verdad sin auto-retarget. Mantiene smart tap, casteo en movimiento, GCD y cadencia v0.7. Ordena la pantalla de Clase sin rehacer Apariencia: 50/50 seguro, clases con más aire, ficha contenida y stats menos amontonados. Mantiene smoke Apariencia → Clase → Mundo y toda la matriz previa de 9 clases."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
