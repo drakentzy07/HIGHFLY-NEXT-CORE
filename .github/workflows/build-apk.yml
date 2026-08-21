@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.7.0 Combat Core
+      - name: Apply HIGHFLY v0.7.1 Combat Matrix + Creator
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -105,8 +105,9 @@ jobs:
           node ../scripts/patch-highfly-v0.6.6.1-creator-stage.mjs
           node ../scripts/patch-highfly-v0.6.6.2-creator-inline-stage.mjs
           node ../scripts/patch-highfly-v0.7.0-combat-core.mjs
+          node ../scripts/patch-highfly-v0.7.1-combat-matrix-creator.mjs
 
-      - name: Typecheck HIGHFLY v0.7.0
+      - name: Typecheck HIGHFLY v0.7.1
         working-directory: game
         run: pnpm run check:ts
 
@@ -116,9 +117,9 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.7.0 creator + progression + combat
+      - name: Test HIGHFLY v0.7.1 creator + progression + combat matrix
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -157,7 +158,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.7.0 Combat Core: conserva el checkpoint estable Build #91 y suma smart tap restringido, prioridad dinámica preparada para cercano/menor HP/menor %HP, drag manual con microasistencia de sólo 7 grados, free cast hacia adelante sin target obligatorio, GCD de combate 25% más corto, casteo móvil y ataque básico al 60% del intervalo original. Mantiene creador 50/50, ficha completa, smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, telegraphs MOBA y dash con colisión."
+          NOTES="HIGHFLY v0.7.1: mantiene el Combat Core v0.7.0 y corrige el free-aim sistémico para habilidades hostiles dirigidas, incluidos builders y finishers del Pícaro, sin auto-retarget cuando el drag falla. Conserva contratos especiales de target para cargas, tame/dispel/resurrección y agrega matriz de regresión para las 9 clases. Reordena el creador móvil: CTA Entrar al Mundo integrado a la columna de clase, ficha derecha más legible, stats 3x2 y scroll seguro. Mantiene smoke Apariencia → Clase → Mundo, RM reales, Entrenamiento propio, telegraphs MOBA, GCD v0.7 y dash con colisión."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
