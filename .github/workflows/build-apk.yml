@@ -110,6 +110,7 @@ jobs:
           node ../scripts/patch-highfly-v0.7.2-lane-aim-creator.mjs
           node ../scripts/patch-highfly-v0.7.2.1-creator-fit.mjs
           node ../scripts/patch-highfly-v0.7.3-class-geometry-action-sweep.mjs
+          node ../scripts/patch-highfly-v0.7.3.1-smoke-geometry-fix.mjs
 
       - name: Typecheck HIGHFLY v0.7.3
         working-directory: game
