@@ -235,6 +235,10 @@ for (const testPath of [
   test = test.replaceAll('height: 46px !important', 'height: auto !important');
   test = test.replaceAll('min-height: 46px !important', 'min-height: 0 !important');
   test = test.replaceAll('max-height: 46px !important', 'max-height: none !important');
+  test = test.replaceAll(
+    'sheet: { y: 1.38, z: 3.8, lookY: 1.25 }',
+    'sheet: { y: 1.34, z: 3.25, lookY: 1.22 }',
+  );
   write(testPath, test);
 }
 
