@@ -132,4 +132,20 @@ describe('HIGHFLY v0.8.0.1 creator dossier fit', () => {
   write(path, content);
 }
 
-console.log('[HIGHFLY v0.8.0.1] dossier compacted to fit S23 class stage; selector/preview/combat untouched.');
+// #129 reached the final runtime successfully and proved the dossier now fits
+// exactly: clientHeight === scrollHeight === 128px. One historical v0.7.1 test
+// still required overflow:auto from the old scroll-safety design. Align only that
+// stale assertion with the final no-scroll runtime contract.
+{
+  const path = 'tests/highfly_v071_combat_matrix_creator.test.ts';
+  let test = read(path);
+  const stale = `expect(creator).toContain("important(refs.classDetails, 'overflow', 'auto')")`;
+  const finalContract = `expect(creator).toContain("important(refs.classDetails, 'overflow', 'hidden')")`;
+  if (!test.includes(stale)) {
+    throw new Error('Anchor not found: stale v0.7.1 dossier overflow expectation');
+  }
+  test = test.replace(stale, finalContract);
+  write(path, test);
+}
+
+console.log('[HIGHFLY v0.8.0.1] dossier fit + final historical contract aligned; selector/preview/combat/fitness untouched.');
