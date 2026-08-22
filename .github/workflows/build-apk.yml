@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.7.5 balanced creator + Action Sweep
+      - name: Apply HIGHFLY v0.8.0 Fitness Core + balanced creator + Action Sweep
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -113,8 +113,10 @@ jobs:
           node ../scripts/patch-highfly-v0.7.3.1-smoke-geometry-fix.mjs
           node ../scripts/patch-highfly-v0.7.4-creator-visual-hierarchy.mjs
           node ../scripts/patch-highfly-v0.7.5-creator-balanced-layout.mjs
+          node ../scripts/patch-highfly-v0.7.5.1-class-grid-lock.mjs
+          node ../scripts/patch-highfly-v0.8.0-fitness-core-rm-e1rm.mjs
 
-      - name: Typecheck HIGHFLY v0.7.5
+      - name: Typecheck HIGHFLY v0.8.0
         working-directory: game
         run: pnpm run check:ts
 
@@ -124,9 +126,9 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.7.5 creator + spatial combat matrix
+      - name: Test HIGHFLY v0.8.0 Fitness Core + creator + spatial combat matrix
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -165,7 +167,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.7.5: Clase adopta la misma lógica limpia que Apariencia. La pantalla se divide 50/50: izquierda con nombre, selector de 9 clases en grilla 3x3 legible y ficha completa con atributos 3x2; derecha dedicada por completo al personaje en vivo a altura y ancho completos. Se elimina el rail angosto de v0.7.4 y cualquier tercera columna. El barrido físico multiobjetivo de Wicked Slash y la matriz espacial de combate permanecen intactos y siguen cubiertos por regresión."
+          NOTES="HIGHFLY v0.8.0: cierra el layout de Clase 50/50 probado en #123 bloqueando la grilla 3x3 contra el shrink heredado; mantiene intacto el Action Sweep multiobjetivo aprobado. Fitness Core incorpora e1RM estimado solo desde ejercicios de una sesión validada (1-10 reps), conserva separado el RM registrado, usa la mejor evidencia como base de prescripción y muestra en Entrenamiento la cadena real [SISTEMA] Training XP → Potencial → bonus de combate."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
