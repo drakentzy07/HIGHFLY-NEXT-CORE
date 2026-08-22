@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.7.3 Class 3-zone + Action Sweep
+      - name: Apply HIGHFLY v0.7.4 S23 creator hierarchy + Action Sweep
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -111,20 +111,21 @@ jobs:
           node ../scripts/patch-highfly-v0.7.2.1-creator-fit.mjs
           node ../scripts/patch-highfly-v0.7.3-class-geometry-action-sweep.mjs
           node ../scripts/patch-highfly-v0.7.3.1-smoke-geometry-fix.mjs
+          node ../scripts/patch-highfly-v0.7.4-creator-visual-hierarchy.mjs
 
-      - name: Typecheck HIGHFLY v0.7.3
+      - name: Typecheck HIGHFLY v0.7.4
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Runtime smoke Apariencia 50/50 → Clase 34/28/38 → Mundo
+      - name: Runtime smoke Apariencia 50/50 → Clase rail+hero+stats → Mundo
         working-directory: game
         run: |
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.7.3 creator + spatial combat matrix
+      - name: Test HIGHFLY v0.7.4 creator + spatial combat matrix
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -163,7 +164,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.7.3: Apariencia conserva su 50/50. Clase pasa a una composición real de tres zonas 34/28/38: selector 3x3 completo, personaje y ficha de stats lado a lado y ambos a altura completa, eliminando el recorte y el personaje diminuto del diseño apilado. En combate, Wicked Slash del Asesino/Pícaro pasa a ser un barrido frontal físico de 100 grados y 5m: el drag no necesita objetivo marcado si un monstruo intersecta el cono, puede impactar hasta cinco cuerpos y concede combo una sola vez por casteo. Los ataques single-target y las mecánicas hard-target como Charge, Taunt o Polymorph conservan su semántica."
+          NOTES="HIGHFLY v0.7.4: el creador deja de comprimir tres paneles equivalentes. En Clase, las 9 clases pasan a un rail vertical angosto; el cazador recupera una zona visual grande con cámara más cercana y la ficha gana ancho real. Los seis atributos dejan la fila microscópica de 6 columnas y pasan a una matriz legible 3x2. CI ahora falla si en 915x412 el selector supera ~190px, el personaje baja de ~275px o la ficha baja de ~325px. Se conserva el barrido físico multiobjetivo de Wicked Slash y el resto de la matriz de combate validada en v0.7.3."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
