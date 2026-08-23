@@ -71,7 +71,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.8.0.5 roomy creator stats + visible RM + Fitness Core + Action Sweep
+      - name: Apply HIGHFLY v0.8.1 semantic skill audit + creator final polish + visible RM
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -120,20 +120,21 @@ jobs:
           node ../scripts/patch-highfly-v0.8.0.3-creator-clean-reset.mjs
           node ../scripts/patch-highfly-v0.8.0.4-ci-contracts.mjs
           node ../scripts/patch-highfly-v0.8.0.5-creator-rm-visibility.mjs
+          node ../scripts/patch-highfly-v0.8.1-skill-audit-creator-final.mjs
 
-      - name: Typecheck HIGHFLY v0.8.0.5
+      - name: Typecheck HIGHFLY v0.8.1
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Runtime smoke Apariencia 50/50 → Clase roomy 3x2 stats → Mundo
+      - name: Runtime smoke Apariencia → Clase footer-safe 3x2 stats → Mundo
         working-directory: game
         run: |
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.8.0.5 Fitness Core + visible RM + roomy creator + spatial combat matrix
+      - name: Test HIGHFLY v0.8.1 Fitness Core + RM + semantic skill geometry + creator
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts tests/highfly_v081_skill_audit_creator_final.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -172,7 +173,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.8.0.5: en Clase elimina del paso 2 el input de nombre redundante para dedicar ese espacio a seis stats reales en matriz 3x2 de 36px con tipografia mayor. Entrenamiento eleva RM a RM / MARCAS visible; si no existen marcas guardadas abre automaticamente ese panel, guarda cada 1RM manual al escribir y mantiene e1RM separado y APLICAR A RUTINA. Action Sweep, targeting y Fitness Core permanecen intactos."
+          NOTES="HIGHFLY v0.8.1: Clase reserva una zona real para el footer y aleja ligeramente el preview para que los seis stats 3x2 respiren. Arc Bolt del Chaman conserva su carga de 1.5 s y ahora impacta a todos los enemigos dentro del cono triangular. El apuntado deja de inferir conos por palabras del nombre y usa mecanicas reales; Wicked Slash permanece intacto. RM / MARCAS y e1RM siguen activos."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
