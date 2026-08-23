@@ -87,6 +87,30 @@ function replaceRequired(source, from, to, label) {
   write(path, source);
 }
 
+// The camera move above is intentional final behavior. Historical generated
+// creator regressions must follow that final authority instead of pinning 3.25.
+for (const testPath of [
+  'tests/highfly_v066_creator_combat_flow.test.ts',
+  'tests/highfly_v071_combat_matrix_creator.test.ts',
+  'tests/highfly_v0711_fx_type_fix.test.ts',
+  'tests/highfly_v072_lane_aim_creator.test.ts',
+  'tests/highfly_v073_class_geometry_action_sweep.test.ts',
+  'tests/highfly_v074_creator_visual_hierarchy.test.ts',
+  'tests/highfly_v075_creator_balanced_layout.test.ts',
+  'tests/highfly_v0751_class_grid_lock.test.ts',
+  'tests/highfly_v0801_creator_dossier_fit.test.ts',
+  'tests/highfly_v0802_creator_stat_visibility.test.ts',
+  'tests/highfly_v0803_creator_clean_reset.test.ts',
+]) {
+  if (!fs.existsSync(testPath)) continue;
+  let test = read(testPath);
+  test = test.replaceAll(
+    'sheet: { y: 1.34, z: 3.25, lookY: 1.22 }',
+    'sheet: { y: 1.34, z: 3.55, lookY: 1.22 }',
+  );
+  write(testPath, test);
+}
+
 // ---------------------------------------------------------------------------
 // 2) AIM LANGUAGE AUDIT
 //
@@ -188,7 +212,7 @@ function replaceRequired(source, from, to, label) {
 }
 
 // ---------------------------------------------------------------------------
-// 4) REGRESSION — REAL SHAMAN MULTI-BODY HIT + SEMANTIC TELEGRAPHS + CREATOR
+// 4) REGRESSION — REAL SHAMAN CAST PATH + SEMANTIC TELEGRAPHS + CREATOR
 // ---------------------------------------------------------------------------
 {
   const path = 'tests/highfly_v081_skill_audit_creator_final.test.ts';
@@ -198,13 +222,29 @@ import { ABILITIES, MOBS } from '../src/sim/data';
 import { createMob } from '../src/sim/entity';
 import { Sim } from '../src/sim/sim';
 import type { Entity } from '../src/sim/types';
+import { groundHeight } from '../src/sim/world';
 
-function addTarget(sim: Sim, id: number, dx: number, dz: number): Entity {
+function nearestMob(sim: Sim, templateId: string): Entity {
   const p = sim.player;
+  let best: Entity | null = null;
+  let bestD = Infinity;
+  for (const entity of sim.entities.values()) {
+    if (entity.kind !== 'mob' || entity.dead || entity.templateId !== templateId) continue;
+    const distance = Math.hypot(entity.pos.x - p.pos.x, entity.pos.z - p.pos.z);
+    if (distance < bestD) {
+      bestD = distance;
+      best = entity;
+    }
+  }
+  if (!best) throw new Error(\`no \${templateId} in world\`);
+  return best;
+}
+
+function addTargetAt(sim: Sim, id: number, x: number, z: number): Entity {
   const mob = createMob(id, MOBS.training_dummy, 20, {
-    x: p.pos.x + dx,
-    y: p.pos.y,
-    z: p.pos.z + dz,
+    x,
+    y: groundHeight(x, z, sim.cfg.seed),
+    z,
   });
   mob.hostile = true;
   mob.dead = false;
@@ -225,29 +265,62 @@ describe('HIGHFLY v0.8.1 skill geometry audit + creator final polish', () => {
     expect(hud).toContain("def?.id === 'sinister_strike'");
   });
 
-  it('keeps Arc Bolt authored as a charged spell and makes its cone hit multiple bodies', () => {
+  it('keeps Arc Bolt charged and damages every body inside its real cone', () => {
     expect(ABILITIES.lightning_bolt.castTime).toBe(1.5);
-    const sim = new Sim({ seed: 8117, playerClass: 'shaman', autoEquip: true }) as Sim & Record<string, any>;
-    sim.setPlayerLevel(20);
+
+    // Mirror ClaudeCraft's own lightning_bolt_fx runtime path: seed 42 and a
+    // real forest wolf in the live world, then add only the bodies needed to
+    // prove HIGHFLY multi-target geometry around that known-good cast lane.
+    const sim = new Sim({ seed: 42, playerClass: 'shaman' }) as Sim & Record<string, any>;
     const p = sim.player;
-    p.critChance = 0;
-    p.facing = 0;
+    const primary = nearestMob(sim, 'forest_wolf');
+    p.pos.x = primary.pos.x + 4;
+    p.pos.z = primary.pos.z;
+    p.pos.y = groundHeight(p.pos.x, p.pos.z, sim.cfg.seed);
+    p.prevPos = { ...p.pos };
+    (sim as unknown as { rebucket(e: Entity): void }).rebucket(p);
+    p.facing = Math.atan2(primary.pos.x - p.pos.x, primary.pos.z - p.pos.z);
     p.resource = p.maxResource;
 
-    const primary = addTarget(sim, 98101, 0, 5);
-    const secondary = addTarget(sim, 98102, 1.4, 6);
-    const outside = addTarget(sim, 98103, 7, 2);
+    primary.maxHp = primary.hp = 1_000_000;
+    primary.stats.armor = 0;
+
+    const forwardX = Math.sin(p.facing);
+    const forwardZ = Math.cos(p.facing);
+    const rightX = Math.cos(p.facing);
+    const rightZ = -Math.sin(p.facing);
+
+    const secondary = addTargetAt(
+      sim,
+      98102,
+      p.pos.x + forwardX * 5 + rightX * 1.2,
+      p.pos.z + forwardZ * 5 + rightZ * 1.2,
+    );
+    const outside = addTargetAt(
+      sim,
+      98103,
+      p.pos.x + forwardX * 5 + rightX * 5,
+      p.pos.z + forwardZ * 5 + rightZ * 5,
+    );
+
     sim.targetEntity(primary.id);
     sim.castAbility('lightning_bolt');
 
-    const primaryBefore = primary.hp;
-    const secondaryBefore = secondary.hp;
-    const outsideBefore = outside.hp;
-    for (let i = 0; i < 180; i += 1) sim.tick();
+    const damagedIds = new Set<number>();
+    let sawLightningFx = false;
+    for (let i = 0; i < 20 * 5; i += 1) {
+      for (const event of sim.tick()) {
+        if (event.type === 'spellfx' && event.fx === 'lightning' && event.targetId === primary.id) {
+          sawLightningFx = true;
+        }
+        if (event.type === 'damage' && event.amount > 0) damagedIds.add(event.targetId);
+      }
+    }
 
-    expect(primary.hp).toBeLessThan(primaryBefore);
-    expect(secondary.hp).toBeLessThan(secondaryBefore);
-    expect(outside.hp).toBe(outsideBefore);
+    expect(sawLightningFx).toBe(true);
+    expect(damagedIds.has(primary.id)).toBe(true);
+    expect(damagedIds.has(secondary.id)).toBe(true);
+    expect(damagedIds.has(outside.id)).toBe(false);
   });
 
   it('reserves a footer-free class workspace and pulls only the class preview camera back', () => {
