@@ -122,8 +122,11 @@ function replaceRequired(source, from, to, label) {
   if (!classStatVisibility?.ready || classStatVisibility.count !== 6) {
     throw new Error(\`HIGHFLY creator must render exactly six class stat cells: \${JSON.stringify(classStatVisibility)}\`);
   }
-  if (classStatVisibility.detailsHeight < 145 || classStatVisibility.gridHeight < 46) {
-    throw new Error(\`HIGHFLY creator class dossier/stat matrix is vertically compressed: \${JSON.stringify(classStatVisibility)}\`);
+  // Physical containment is authoritative. #133 measured a healthy 130px dossier
+  // with the complete 47px matrix and all six 22px cells visible; an arbitrary
+  // 145px dossier minimum produced a false negative despite correct geometry.
+  if (classStatVisibility.gridHeight < 46) {
+    throw new Error(\`HIGHFLY creator class stat matrix is vertically compressed: \${JSON.stringify(classStatVisibility)}\`);
   }
   if (classStatVisibility.gridTop < classStatVisibility.detailsTop - 1 || classStatVisibility.gridBottom > classStatVisibility.detailsBottom + 1) {
     throw new Error(\`HIGHFLY creator stat matrix escapes the visible dossier: \${JSON.stringify(classStatVisibility)}\`);
