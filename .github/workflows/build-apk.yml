@@ -165,6 +165,32 @@ jobs:
           ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
+      - name: Upload downloadable HIGHFLY APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-APK-${{ github.run_number }}
+          path: output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish rolling HIGHFLY test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="highfly-latest"
+          TITLE="HIGHFLY Latest Test APK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          NOTES="HIGHFLY v0.8.1 test build. APK publishing is intentionally independent from web-preview hosting: the APK is uploaded first so a Pages/Vercel issue cannot block phone testing. Creator, RM / MARCAS, e1RM, semantic skill geometry and approved combat behavior remain unchanged."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
+          fi
+          gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
+
       - name: Build HIGHFLY PC Preview
         working-directory: game
         env:
@@ -179,32 +205,16 @@ jobs:
           echo "HIGHFLY PC Preview ready from the exact v0.8.1 patched source"
 
       - name: Configure GitHub Pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
       - name: Upload HIGHFLY PC Preview
+        continue-on-error: true
         uses: actions/upload-pages-artifact@v3
         with:
           path: game/dist
-
-      - name: Publish rolling HIGHFLY test release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="highfly-latest"
-          TITLE="HIGHFLY Latest Test APK"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.8.1: Clase reserva una zona real para el footer y aleja ligeramente el preview para que los seis stats 3x2 respiren. Arc Bolt del Chaman conserva su carga de 1.5 s y ahora impacta a todos los enemigos dentro del cono triangular. El apuntado deja de inferir conos por palabras del nombre y usa mecanicas reales; Wicked Slash permanece intacto. RM / MARCAS y e1RM siguen activos. Build #144 agrega HIGHFLY PC Preview desde el mismo codigo que genera Android."
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
-          else
-            gh release create "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
-          fi
-          gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
 
       - name: Purge old HIGHFLY Actions APK artifacts
         if: success()
@@ -222,6 +232,7 @@ jobs:
 
   web-preview:
     needs: android
+    continue-on-error: true
     runs-on: ubuntu-latest
     permissions:
       pages: write
