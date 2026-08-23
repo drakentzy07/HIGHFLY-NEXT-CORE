@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
   actions: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: highfly-apk-${{ github.head_ref || github.ref_name }}
@@ -163,6 +165,29 @@ jobs:
           ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
+      - name: Build HIGHFLY PC Preview
+        working-directory: game
+        env:
+          VITE_NATIVE_APP: '1'
+          VITE_HIGHFLY_OFFLINE: '1'
+          VITE_API_ORIGIN: 'http://127.0.0.1'
+        run: |
+          rm -rf dist
+          pnpm run build -- --base=./
+          node scripts/build_media_manifest.mjs prune
+          test -f dist/index.html
+          echo "HIGHFLY PC Preview ready from the exact v0.8.1 patched source"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload HIGHFLY PC Preview
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: game/dist
+
       - name: Publish rolling HIGHFLY test release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -173,7 +198,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.8.1: Clase reserva una zona real para el footer y aleja ligeramente el preview para que los seis stats 3x2 respiren. Arc Bolt del Chaman conserva su carga de 1.5 s y ahora impacta a todos los enemigos dentro del cono triangular. El apuntado deja de inferir conos por palabras del nombre y usa mecanicas reales; Wicked Slash permanece intacto. RM / MARCAS y e1RM siguen activos."
+          NOTES="HIGHFLY v0.8.1: Clase reserva una zona real para el footer y aleja ligeramente el preview para que los seis stats 3x2 respiren. Arc Bolt del Chaman conserva su carga de 1.5 s y ahora impacta a todos los enemigos dentro del cono triangular. El apuntado deja de inferir conos por palabras del nombre y usa mecanicas reales; Wicked Slash permanece intacto. RM / MARCAS y e1RM siguen activos. Build #144 agrega HIGHFLY PC Preview desde el mismo codigo que genera Android."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
@@ -194,3 +219,18 @@ jobs:
                 gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$artifact_id"
               fi
             done
+
+  web-preview:
+    needs: android
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy HIGHFLY PC Preview
+        id: deployment
+        uses: actions/deploy-pages@v4
