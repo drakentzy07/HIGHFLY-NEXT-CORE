@@ -1,0 +1,102 @@
+name: HIGHFLY Storage Cleanup
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: highfly-storage-cleanup
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Reclaim HIGHFLY Actions and old release storage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          echo "== Delete ALL rebuildable Actions artifacts =="
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[].id' \
+          | while read -r artifact_id; do
+              [ -z "${artifact_id:-}" ] && continue
+              echo "Deleting artifact $artifact_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" || true
+            done
+
+          echo "== Delete ALL rebuildable Actions caches =="
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" \
+            --jq '.actions_caches[].id' \
+          | while read -r cache_id; do
+              [ -z "${cache_id:-}" ] && continue
+              echo "Deleting cache $cache_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}" || true
+            done
+
+          echo "== Delete historical HIGHFLY releases, keep only highfly-latest =="
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | [.id, .tag_name, .name] | @tsv' \
+          | while IFS=$'\t' read -r release_id tag_name release_name; do
+              [ -z "${release_id:-}" ] && continue
+              if [ "$tag_name" = "highfly-latest" ]; then
+                echo "KEEP release: $tag_name ($release_name)"
+                continue
+              fi
+              case "$tag_name $release_name" in
+                *HIGHFLY*|*highfly*)
+                  echo "Deleting old HIGHFLY release: $tag_name ($release_id)"
+                  gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}" || true
+                  ;;
+              esac
+            done
+
+          echo "== Delete old HIGHFLY test tags, keep highfly-latest =="
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/highfly" \
+            --jq '.[].ref' \
+          | while read -r ref; do
+              [ -z "${ref:-}" ] && continue
+              if [ "$ref" = "refs/tags/highfly-latest" ]; then
+                echo "KEEP tag: $ref"
+                continue
+              fi
+              echo "Deleting old HIGHFLY tag: $ref"
+              encoded_ref=$(printf '%s' "$ref" | sed 's#refs/##')
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/${encoded_ref}" || true
+            done
+
+          echo "== Delete completed historical Actions runs, keep newest 5 =="
+          mapfile -t run_ids < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
+              --jq '.workflow_runs | sort_by(.created_at) | reverse | .[].id'
+          )
+          index=0
+          for run_id in "${run_ids[@]}"; do
+            index=$((index + 1))
+            if [ "$index" -le 5 ]; then
+              echo "KEEP recent run $run_id"
+              continue
+            fi
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status' 2>/dev/null || echo unknown)
+            if [ "$status" = "completed" ]; then
+              echo "Deleting old completed run $run_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" || true
+            fi
+          done
+
+          echo "== Final storage-oriented inventory =="
+          echo "Artifacts:"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.total_count'
+          echo "Caches:"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" --jq '.total_count // (.actions_caches | length)'
+          echo "Releases kept:"
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | [.tag_name, .name, (.assets | map(.size) | add // 0)] | @tsv' || true
+          echo "Only rolling release highfly-latest is intentionally preserved."
