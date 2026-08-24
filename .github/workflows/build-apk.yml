@@ -2,17 +2,45 @@ name: Build HIGHFLY APK
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [ main ]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: highfly-apk-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
 
     steps:
       - name: Checkout HIGHFLY overlay
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Purge disposable Actions storage before build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[].id' \
+          | while read -r artifact_id; do
+              [ -z "${artifact_id:-}" ] && continue
+              echo "Deleting old artifact $artifact_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" || true
+            done
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" --jq '.actions_caches[].id' \
+          | while read -r cache_id; do
+              [ -z "${cache_id:-}" ] && continue
+              echo "Deleting cache $cache_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}" || true
+            done
 
       - name: Free runner disk space
         run: |
@@ -21,9 +49,16 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
-      - name: Clone ClaudeCraft v0.39.0
+      - name: Fetch ClaudeCraft v0.39.0 snapshot
         run: |
-          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+          rm -rf game claudecraft.tar.gz
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+            https://github.com/levy-street/world-of-claudecraft/archive/refs/heads/release/v0.39.0.tar.gz \
+            -o claudecraft.tar.gz
+          mkdir -p game
+          tar -xzf claudecraft.tar.gz --strip-components=1 -C game
+          rm -f claudecraft.tar.gz
+          test -f game/package.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -54,13 +89,73 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.4 native patch
+      - name: Apply HIGHFLY v0.8.4 full action-combat audit + creator/RM
         working-directory: game
-        run: node ../scripts/patch-highfly-native.mjs
+        run: |
+          node ../scripts/patch-highfly-native.mjs
+          node ../scripts/patch-highfly-v0.4-compat.mjs
+          node ../scripts/patch-highfly-v0.4.1-creator.mjs
+          node ../scripts/patch-highfly-v0.4.3-hud-camera.mjs
+          node ../scripts/patch-highfly-v0.5.0-action-foundation.mjs
+          node ../scripts/patch-highfly-v0.5.1-free-aim.mjs
+          node ../scripts/patch-highfly-v0.5.2-s23-hotfix.mjs
+          node ../scripts/patch-highfly-v0.5.3-anchor-fix.mjs
+          node ../scripts/patch-highfly-v0.5.3-mobile-skill-aim.mjs
+          node ../scripts/patch-highfly-v0.5.4-player-origin-aim.mjs
+          node ../scripts/patch-highfly-v0.5.5-action-control.mjs
+          node ../scripts/patch-highfly-v0.6.0-big-pass.mjs
+          node ../scripts/patch-highfly-v0.6.0-compat.mjs
+          node ../scripts/patch-highfly-v0.6.1-full-pass.mjs
+          node ../scripts/patch-highfly-v0.6.1-moba-aim.mjs
+          node ../scripts/patch-highfly-v0.6.2-creator-s23.mjs
+          node ../scripts/patch-highfly-v0.6.3-precompat.mjs
+          node ../scripts/patch-highfly-v0.6.3-mobile-polish.mjs
+          node ../scripts/patch-highfly-v0.6.3-test-contracts.mjs
+          node ../scripts/patch-highfly-v0.6.4-freecast-creator.mjs
+          node ../scripts/patch-highfly-v0.6.4.1-lifecycle-fix.mjs
+          node ../scripts/patch-highfly-v0.6.4.2-native-bundle.mjs
+          node ../scripts/patch-highfly-v0.6.4.3-css-fix.mjs
+          node ../scripts/patch-highfly-v0.6.5-action-rm-creator.mjs
+          node ../scripts/patch-highfly-v0.6.5.1-creator-state.mjs
+          node ../scripts/patch-highfly-v0.6.5.2-creator-runtime.mjs
+          node ../scripts/patch-highfly-v0.6.5.3-training-migration.mjs
+          node ../scripts/patch-highfly-v0.6.6-creator-combat-flow.mjs
+          node ../scripts/patch-highfly-v0.6.6.1-creator-stage.mjs
+          node ../scripts/patch-highfly-v0.6.6.2-creator-inline-stage.mjs
+          node ../scripts/patch-highfly-v0.7.0-combat-core.mjs
+          node ../scripts/patch-highfly-v0.7.1-combat-matrix-creator.mjs
+          node ../scripts/patch-highfly-v0.7.1.1-fx-type-fix.mjs
+          node ../scripts/patch-highfly-v0.7.2-lane-aim-creator.mjs
+          node ../scripts/patch-highfly-v0.7.2.1-creator-fit.mjs
+          node ../scripts/patch-highfly-v0.7.3-class-geometry-action-sweep.mjs
+          node ../scripts/patch-highfly-v0.7.3.1-smoke-geometry-fix.mjs
+          node ../scripts/patch-highfly-v0.7.4-creator-visual-hierarchy.mjs
+          node ../scripts/patch-highfly-v0.7.5-creator-balanced-layout.mjs
+          node ../scripts/patch-highfly-v0.7.5.1-class-grid-lock.mjs
+          node ../scripts/patch-highfly-v0.8.0-fitness-core-rm-e1rm.mjs
+          node ../scripts/patch-highfly-v0.8.0.1-creator-dossier-fit.mjs
+          node ../scripts/patch-highfly-v0.8.0.2-creator-stat-visibility.mjs
+          node ../scripts/patch-highfly-v0.8.0.3-creator-clean-reset.mjs
+          node ../scripts/patch-highfly-v0.8.0.4-ci-contracts.mjs
+          node ../scripts/patch-highfly-v0.8.0.5-creator-rm-visibility.mjs
+          node ../scripts/patch-highfly-v0.8.1-skill-audit-creator-final.mjs
+          node ../scripts/patch-highfly-v0.8.2-combat-audit.mjs
+          node ../scripts/patch-highfly-v0.8.3-full-combat-semantics.mjs
+          node ../scripts/patch-highfly-v0.8.4-action-combat-full-audit.mjs
 
-      - name: Typecheck HIGHFLY v0.4
+      - name: Typecheck HIGHFLY v0.8.4
         working-directory: game
         run: pnpm run check:ts
+
+      - name: Runtime smoke Apariencia → Clase footer-safe 3x2 stats → Mundo
+        working-directory: game
+        run: |
+          cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
+          node scripts/highfly_runtime_smoke.mjs
+
+      - name: Test HIGHFLY v0.8.4 Fitness + RM + nine classes + targetless action combat
+        working-directory: game
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts tests/highfly_v081_skill_audit_creator_final.test.ts tests/highfly_v082_combat_audit.test.ts tests/highfly_v083_full_combat_semantics.test.ts tests/highfly_v084_action_combat_full_audit.test.ts tests/glacial_front.test.ts tests/dragons_breath.test.ts tests/ability_damage.test.ts tests/ability_sfx_coverage.test.ts tests/ability_tooltip_consistency.test.ts tests/owned_class_default_bars.test.ts tests/hotbar.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -85,14 +180,36 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
+          cp "$APK" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
+          ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
-      - name: Upload HIGHFLY APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-NEXT-CORE-v0.4-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Publish rolling HIGHFLY test release only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="highfly-latest"
+          TITLE="HIGHFLY Latest Test APK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          NOTES="HIGHFLY v0.8.4: auditoria completa de action combat. Las nueve clases pueden iniciar ataque basico sin seleccionar enemigo y reacquirir un hostil frontal al caer el target; el autoaim del basic queda limitado a un cono de 58 grados. El lado izquierdo del touch queda reservado a movimiento y ya no puede iniciar swipe de camara. Se vuelve a auditar toda habilidad ofensiva y la geometria AoE usa cuerpos dentro de LINE/CONE/CIRCLE, no exclusividad del target marcado. Se preservan Reaping Arc/Revenge/Faultline, Wicked Slash multi-body, Arc Bolt AoE, Storm Spark, Frozen Orb y los conos cargados de Mago."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
+          fi
+          gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
+
+      - name: Purge any disposable artifacts after build
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[].id' \
+          | while read -r artifact_id; do
+              [ -z "${artifact_id:-}" ] && continue
+              echo "Deleting disposable artifact $artifact_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" || true
+            done
