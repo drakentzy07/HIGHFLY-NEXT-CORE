@@ -158,6 +158,19 @@ function replaceBetween(source, startNeedle, endNeedle, replacement, label) {
       };
     }
 
+    // HIGHFLY approved contract: Wicked Slash remains the broad manual 100° sweep.
+    // v0.8.3 replaces the semantic aim method wholesale, so this explicit profile
+    // must live here rather than relying on the older v0.7.3 insertion to survive.
+    if (def?.id === 'sinister_strike') {
+      return {
+        shape: 'cone',
+        range: 5,
+        width: 0,
+        angleDeg: 100,
+        radius: 0,
+      };
+    }
+
     const isDash =
       effectTypes.has('charge') ||
       effectTypes.has('repositionToAim') ||
@@ -357,10 +370,15 @@ describe('HIGHFLY v0.8.3 full combat semantics', () => {
 
   it('preserves the two already-approved HIGHFLY spatial attacks', () => {
     const combat = fs.readFileSync('src/sim/combat/effect_dispatch.ts', 'utf8');
+    const hud = fs.readFileSync('src/ui/hud.ts', 'utf8');
     expect(combat).toContain("ability.id === 'sinister_strike'");
     expect(combat).toContain('highflySweepHalfAngle');
     expect(combat).toContain("ability.id === 'lightning_bolt'");
     expect(combat).toContain('highflyArcHalfAngle');
+    expect(hud).toContain("def?.id === 'sinister_strike'");
+    expect(hud).toContain('angleDeg: 100');
+    expect(hud).toContain("def?.id === 'lightning_bolt'");
+    expect(hud).toContain('angleDeg: 64');
   });
 });
 `;
