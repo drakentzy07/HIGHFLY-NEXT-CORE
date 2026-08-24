@@ -89,7 +89,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.8.5 real mobile combat + full prior stack
+      - name: Apply HIGHFLY v0.8.5.1 real mobile combat + Reaver action-hit + full prior stack
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -143,8 +143,9 @@ jobs:
           node ../scripts/patch-highfly-v0.8.3-full-combat-semantics.mjs
           node ../scripts/patch-highfly-v0.8.4-action-combat-full-audit.mjs
           node ../scripts/patch-highfly-v0.8.5-real-mobile-combat.mjs
+          node ../scripts/patch-highfly-v0.8.5.1-reaver-action-hit.mjs
 
-      - name: Typecheck HIGHFLY v0.8.5
+      - name: Typecheck HIGHFLY v0.8.5.1
         working-directory: game
         run: pnpm run check:ts
 
@@ -154,7 +155,7 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.8.5 real mobile path + nine-class action combat
+      - name: Test HIGHFLY v0.8.5.1 real mobile path + nine-class action combat
         working-directory: game
         run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts tests/highfly_v081_skill_audit_creator_final.test.ts tests/highfly_v082_combat_audit.test.ts tests/highfly_v083_full_combat_semantics.test.ts tests/highfly_v084_action_combat_full_audit.test.ts tests/highfly_v085_real_mobile_combat.test.ts tests/glacial_front.test.ts tests/dragons_breath.test.ts tests/ability_damage.test.ts tests/ability_sfx_coverage.test.ts tests/ability_tooltip_consistency.test.ts tests/owned_class_default_bars.test.ts tests/hotbar.test.ts
 
@@ -195,7 +196,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.8.5: corrige la ruta REAL del boton ATTACK movil: ya no ejecuta attackNearest/targetEntity antes de atacar; el boton entra directo al action-combat y el Sim hace soft-target frontal. Combatiente Reaver Strike (skill 1) es ahora un barrido real multi-body de 100 grados y Onrush/Charge (skill 3 inicial) usa un corredor de dano de 3.2m que impacta todos los cuerpos intersectados. Mantiene la auditoria de las nueve clases, la camara reservada al lado derecho y toda la geometria AoE previa."
+          NOTES="HIGHFLY v0.8.5.1: corrige la ruta REAL del boton ATTACK movil, conserva soft-target frontal, y aplica el hotfix Reaver action-hit para que el barrido de 100 grados no sea consumido por el RNG MMO heredado antes de propagar a todos los cuerpos intersectados. Onrush/Charge mantiene corredor multi-body."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
