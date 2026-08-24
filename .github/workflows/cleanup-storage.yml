@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [ main ]
+  workflow_run:
+    workflows: [ "Build HIGHFLY APK" ]
+    types: [ completed ]
 
 permissions:
   actions: write
