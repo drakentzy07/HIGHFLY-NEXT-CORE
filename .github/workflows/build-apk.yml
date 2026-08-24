@@ -8,8 +8,6 @@ on:
 permissions:
   contents: write
   actions: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: highfly-apk-${{ github.head_ref || github.ref_name }}
@@ -25,6 +23,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Purge disposable Actions storage before build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[].id' \
+          | while read -r artifact_id; do
+              [ -z "${artifact_id:-}" ] && continue
+              echo "Deleting old artifact $artifact_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" || true
+            done
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" --jq '.actions_caches[].id' \
+          | while read -r cache_id; do
+              [ -z "${cache_id:-}" ] && continue
+              echo "Deleting cache $cache_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}" || true
+            done
 
       - name: Free runner disk space
         run: |
@@ -167,15 +183,7 @@ jobs:
           ls -lh output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
           df -h
 
-      - name: Upload downloadable HIGHFLY APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-APK-${{ github.run_number }}
-          path: output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish rolling HIGHFLY test release
+      - name: Publish rolling HIGHFLY test release only
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -193,57 +201,14 @@ jobs:
           fi
           gh release upload "$TAG" output/HIGHFLY_NEXT_CORE_LATEST_DEBUG.apk --clobber
 
-      - name: Build HIGHFLY PC Preview
-        working-directory: game
-        env:
-          VITE_NATIVE_APP: '1'
-          VITE_HIGHFLY_OFFLINE: '1'
-          VITE_API_ORIGIN: 'http://127.0.0.1'
-        run: |
-          rm -rf dist
-          pnpm run build -- --base=./
-          node scripts/build_media_manifest.mjs prune
-          test -f dist/index.html
-          echo "HIGHFLY PC Preview ready from the exact v0.8.3 patched source"
-
-      - name: Configure GitHub Pages
-        continue-on-error: true
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload HIGHFLY PC Preview
-        continue-on-error: true
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: game/dist
-
-      - name: Purge old HIGHFLY Actions APK artifacts
-        if: success()
+      - name: Purge any disposable artifacts after build
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name | startswith("HIGHFLY-NEXT-CORE-")) | .id' \
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[].id' \
           | while read -r artifact_id; do
-              if [ -n "$artifact_id" ]; then
-                echo "Deleting old Actions artifact $artifact_id"
-                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$artifact_id"
-              fi
+              [ -z "${artifact_id:-}" ] && continue
+              echo "Deleting disposable artifact $artifact_id"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}" || true
             done
-
-  web-preview:
-    needs: android
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-      contents: read
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy HIGHFLY PC Preview
-        id: deployment
-        uses: actions/deploy-pages@v4
