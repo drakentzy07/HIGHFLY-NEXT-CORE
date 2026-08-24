@@ -73,7 +73,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.8.2 all-class combat audit + creator final polish + visible RM
+      - name: Apply HIGHFLY v0.8.3 deep all-class combat semantics + creator/RM
         working-directory: game
         run: |
           node ../scripts/patch-highfly-native.mjs
@@ -124,8 +124,9 @@ jobs:
           node ../scripts/patch-highfly-v0.8.0.5-creator-rm-visibility.mjs
           node ../scripts/patch-highfly-v0.8.1-skill-audit-creator-final.mjs
           node ../scripts/patch-highfly-v0.8.2-combat-audit.mjs
+          node ../scripts/patch-highfly-v0.8.3-full-combat-semantics.mjs
 
-      - name: Typecheck HIGHFLY v0.8.2
+      - name: Typecheck HIGHFLY v0.8.3
         working-directory: game
         run: pnpm run check:ts
 
@@ -135,9 +136,9 @@ jobs:
           cp ../scripts/highfly_runtime_smoke.mjs scripts/highfly_runtime_smoke.mjs
           node scripts/highfly_runtime_smoke.mjs
 
-      - name: Test HIGHFLY v0.8.2 Fitness Core + RM + all-class combat + semantic skill geometry
+      - name: Test HIGHFLY v0.8.3 Fitness + RM + nine classes + deep combat semantics
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts tests/highfly_v081_skill_audit_creator_final.test.ts tests/highfly_v082_combat_audit.test.ts
+        run: pnpm exec vitest run tests/highfly_training.test.ts tests/charselect_class_details.test.ts tests/highfly_mobile_aim_contract.test.ts tests/highfly_creator_s23_v062.test.ts tests/highfly_v063_mobile_polish.test.ts tests/highfly_v064_control_creator.test.ts tests/highfly_v065_action_rms_creator.test.ts tests/highfly_v0653_training_migration.test.ts tests/highfly_v066_creator_combat_flow.test.ts tests/highfly_v0661_creator_stage.test.ts tests/highfly_v070_combat_core.test.ts tests/highfly_v071_combat_matrix_creator.test.ts tests/highfly_v0711_fx_type_fix.test.ts tests/highfly_v072_lane_aim_creator.test.ts tests/highfly_v073_class_geometry_action_sweep.test.ts tests/highfly_v074_creator_visual_hierarchy.test.ts tests/highfly_v075_creator_balanced_layout.test.ts tests/highfly_v0751_class_grid_lock.test.ts tests/highfly_v080_fitness_core_rm.test.ts tests/highfly_v0801_creator_dossier_fit.test.ts tests/highfly_v0802_creator_stat_visibility.test.ts tests/highfly_v0803_creator_clean_reset.test.ts tests/highfly_v0805_creator_rm_visibility.test.ts tests/highfly_v081_skill_audit_creator_final.test.ts tests/highfly_v082_combat_audit.test.ts tests/highfly_v083_full_combat_semantics.test.ts tests/glacial_front.test.ts tests/dragons_breath.test.ts tests/ability_damage.test.ts tests/ability_sfx_coverage.test.ts tests/ability_tooltip_consistency.test.ts tests/owned_class_default_bars.test.ts tests/hotbar.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -184,7 +185,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG" --force
-          NOTES="HIGHFLY v0.8.2: auditoria transversal de combate para las 9 clases. El basico del Chaman ahora es un proyectil Nature a distancia para Elemental/Restauracion y personajes sin especializacion, mientras Enhancement conserva melee. Se valida en Sim que las nueve clases puedan conectar su ataque basico y se auditan todas las skills de dano registradas. Arc Bolt sigue siendo cono AoE real y Wicked Slash permanece intacto. APK publicado antes del preview web."
+          NOTES="HIGHFLY v0.8.3: revision profunda de combate de las nueve clases. Reaping Arc/Revenge/Faultline usan arcos frontales reales; los AoE frontales sin target ahora aceptan direccion manual; Glacial Front/Dragon's Breath cargan al mantener y liberan al soltar en touch; Frozen Orb puede orientarse. Se auditan todas las habilidades de clase y se agregan contratos upstream de conos cargados, barras, tooltips, SFX y dano. Storm Spark, Arc Bolt AoE y Wicked Slash se preservan."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --prerelease --notes "$NOTES"
           else
@@ -203,7 +204,7 @@ jobs:
           pnpm run build -- --base=./
           node scripts/build_media_manifest.mjs prune
           test -f dist/index.html
-          echo "HIGHFLY PC Preview ready from the exact v0.8.2 patched source"
+          echo "HIGHFLY PC Preview ready from the exact v0.8.3 patched source"
 
       - name: Configure GitHub Pages
         continue-on-error: true
