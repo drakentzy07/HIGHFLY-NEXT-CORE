@@ -56,14 +56,53 @@ function replaceRequired(source, from, to, label) {
   write(path, source);
 }
 
+// ClaudeCraft's inherited hotbar unit test pins the OLD contract (idle Attack
+// invokes attackNearest). HIGHFLY intentionally replaces that behavior, so the
+// inherited test must guard the new action-first contract instead.
+{
+  const path = 'tests/hotbar.test.ts';
+  let source = read(path);
+  source = replaceRequired(
+    source,
+    `  it('acquires the nearest target when idle and a resolver is available', () => {
+    const calls: string[] = [];
+
+    handleMobileAttackTap(
+      { autoAttack: false, hasLiveHostileTarget: false },
+      {
+        activateAttack: () => calls.push('toggle'),
+        attackNearest: () => calls.push('nearest'),
+      },
+    );
+
+    expect(calls).toEqual(['nearest']);
+  });`,
+    `  it('starts the HIGHFLY attack action directly when idle even if a nearest resolver exists', () => {
+    const calls: string[] = [];
+
+    handleMobileAttackTap(
+      { autoAttack: false, hasLiveHostileTarget: false },
+      {
+        activateAttack: () => calls.push('toggle'),
+        attackNearest: () => calls.push('nearest'),
+      },
+    );
+
+    expect(calls).toEqual(['toggle']);
+  });`,
+    'legacy mobile target-first hotbar expectation',
+  );
+  write(path, source);
+}
+
 // ---------------------------------------------------------------------------
 // 2) COMBATANT SKILL 1 — REAVER STRIKE IS A TRUE MULTI-BODY FRONT SWEEP
 //
 // The starter warrior action is authored as an on-next-swing weaponDamage skill.
-// That path never reaches the generic aoeDamage dispatcher, which is why two bodies
-// inside the visible lane still produced only one hit. Preserve the one rage spend /
-// one queued swing, but resolve the landed slash across up to four additional bodies
-// inside the same 100-degree frontal action arc.
+// That path never reaches the generic aoeDamage dispatcher. Preserve one rage spend
+// and one hit-table roll on the primary. Once that slash CONNECTS, all other bodies
+// inside the same 100-degree volume receive the landed slash damage directly. They
+// must not independently miss/dodge a slash whose geometry already intersects them.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/sim/combat/auto_attack.ts';
@@ -71,18 +110,37 @@ function replaceRequired(source, from, to, label) {
 
   source = replaceRequired(
     source,
-    `      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
+    `    const connected = meleeSwing(ctx, p, t, bonus, abilityName, {
+      autoAttackHand: 'mainhand',
+      abilityId,
+      threatFlat,
+      threatMult,
+      weaponMult,
+      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
       autoAttack: true,
     });
     // Thuggery mastery (Sword Specialization shape): a landed mainhand auto has`,
-    `      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
+    `    let highflyReaverPrimaryDamage = 0;
+    const connected = meleeSwing(ctx, p, t, bonus, abilityName, {
+      autoAttackHand: 'mainhand',
+      abilityId,
+      threatFlat,
+      threatMult,
+      weaponMult,
+      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
       autoAttack: true,
+      onDealt:
+        abilityId === 'heroic_strike'
+          ? (amount) => {
+              highflyReaverPrimaryDamage = amount;
+            }
+          : undefined,
     });
 
     // HIGHFLY Combatant starter: Reaver Strike is spatial, not target-exclusive.
-    // The queued ability spends rage/cooldown once above; secondary bodies only
-    // resolve the same weapon hit inside the authored frontal sweep.
-    if (connected && abilityId === 'heroic_strike') {
+    // The primary owns the hit roll; secondary bodies inside the connected slash
+    // inherit that landed physical hit without another miss/dodge/proc roll.
+    if (connected && abilityId === 'heroic_strike' && highflyReaverPrimaryDamage > 0) {
       const highflyReaverHalfAngle = (50 * Math.PI) / 180;
       let highflyReaverBodies = 0;
       for (const hostile of ctx.hostilesInRadius(p, p.pos, MELEE_RANGE + 1.25)) {
@@ -94,20 +152,26 @@ function replaceRequired(source, from, to, label) {
         );
         if (highflyReaverDiff > highflyReaverHalfAngle) continue;
         highflyReaverBodies += 1;
-        meleeSwing(ctx, p, hostile, bonus, abilityName, {
-          autoAttackHand: 'mainhand',
+        ctx.dealDamage(
+          p,
+          hostile,
+          highflyReaverPrimaryDamage,
+          false,
+          'physical',
+          abilityName,
+          'hit',
+          false,
+          { flat: 0, mult: threatMult },
+          true,
+          false,
+          false,
           abilityId,
-          threatFlat,
-          threatMult,
-          weaponMult,
-          whiteDualWieldPenalty: false,
-          autoAttack: false,
-        });
+        );
       }
     }
 
     // Thuggery mastery (Sword Specialization shape): a landed mainhand auto has`,
-    'Reaver Strike real multi-body queued sweep',
+    'Reaver Strike connected slash propagates to all intersected bodies',
   );
 
   write(path, source);
@@ -143,11 +207,6 @@ function replaceRequired(source, from, to, label) {
 
 // ---------------------------------------------------------------------------
 // 3) COMBATANT SKILL 3 — ONRUSH / CHARGE OWNS A REAL DAMAGE CORRIDOR
-//
-// A dash line is a volume. Bodies standing shoulder-to-shoulder in the route must
-// not become immune just because only one entity is the movement anchor. The charge
-// target still owns the stun/endpoint; every hostile whose body intersects the
-// 3.2m-wide travel capsule takes a 65% normalized weapon strike once.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/sim/combat/effect_dispatch.ts';
@@ -326,6 +385,7 @@ describe('HIGHFLY v0.8.5 real mobile combat path', () => {
     expect(hud).toContain("def?.id === 'heroic_strike'");
     expect(hud).toContain('angleDeg: 100');
     expect(attacks).toContain("abilityId === 'heroic_strike'");
+    expect(attacks).toContain('highflyReaverPrimaryDamage');
     expect(attacks).toContain('highflyReaverHalfAngle');
     expect(dispatch).toContain("ability.id === 'charge'");
     expect(dispatch).toContain('highflyChargeHalfWidth = 1.6');
@@ -336,4 +396,4 @@ describe('HIGHFLY v0.8.5 real mobile combat path', () => {
   write(path, content);
 }
 
-console.log('[HIGHFLY v0.8.5] real mobile Attack path + Combatant Reaver/Onrush multi-body semantics installed.');
+console.log('[HIGHFLY v0.8.5] real mobile Attack path + deterministic Reaver sweep + Onrush multi-body semantics installed.');
