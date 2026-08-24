@@ -81,8 +81,8 @@ function replaceBetween(source, startNeedle, endNeedle, replacement, label) {
 // ---------------------------------------------------------------------------
 // 2) MOBILE ACTION AIM — DIRECTIONAL NO-TARGET ATTACKS ARE REAL INPUTS
 //
-// Patch method boundaries instead of matching a historical whole method. Several
-// HIGHFLY versions intentionally rewrite this HUD; structural anchors are stable.
+// IMPORTANT: only replace the two methods we own. Do not replace through later
+// HIGHFLY helpers such as highflyPickDirectionalTarget/highflyForwardAim.
 // ---------------------------------------------------------------------------
 {
   const path = 'src/ui/hud.ts';
@@ -181,11 +181,12 @@ function replaceBetween(source, startNeedle, endNeedle, replacement, label) {
         typeof empoweredCone.angle === 'number' && Number.isFinite(empoweredCone.angle)
           ? empoweredCone.angle
           : 64;
+      const widestAngle = Math.max(baseAngle, ...stageAngles.filter((value) => value > 0));
       return {
         shape: 'cone',
         range: Math.max(range, 5, ...stageRanges),
         width: 0,
-        angleDeg: Math.max(36, Math.min(180, baseAngle, ...stageAngles.filter((v) => v > 0))),
+        angleDeg: Math.max(36, Math.min(180, widestAngle)),
         radius: 0,
       };
     }
@@ -242,9 +243,9 @@ function replaceBetween(source, startNeedle, endNeedle, replacement, label) {
   source = replaceBetween(
     source,
     '  private highflyAimProfile(',
-    '  private highflyPickManualMicroAssistTarget(',
+    '  private highflyPickDirectionalTarget(',
     aimProfile,
-    'HIGHFLY semantic aim profile',
+    'HIGHFLY semantic aim profile only',
   );
 
   source = replaceRequired(
@@ -350,6 +351,8 @@ describe('HIGHFLY v0.8.3 full combat semantics', () => {
     expect(hud).toContain("effect.type === 'frozenOrb'");
     expect(hud).toContain('frontalHalfAngle');
     expect(hud).toContain('this.highflyDirectionalNoTarget(resolved)');
+    expect(hud).toContain('private highflyPickDirectionalTarget(');
+    expect(hud).toContain('highflyForwardAim');
   });
 
   it('preserves the two already-approved HIGHFLY spatial attacks', () => {
@@ -364,4 +367,4 @@ describe('HIGHFLY v0.8.3 full combat semantics', () => {
   write(path, content);
 }
 
-console.log('[HIGHFLY v0.8.3] deep nine-class combat semantics installed with structural HUD patching.');
+console.log('[HIGHFLY v0.8.3] deep nine-class combat semantics installed without deleting existing HUD combat helpers.');
