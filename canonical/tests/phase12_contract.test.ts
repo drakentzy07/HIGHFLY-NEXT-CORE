@@ -15,11 +15,21 @@ describe('HIGHFLY canonical Phase 0/1/2 boundary', () => {
     expect(css).toContain('display: none !important');
   });
 
-  it('uses one owned creator surface with a real engine preview', () => {
+  it('composes one two-step HIGHFLY creator from the real upstream creator widgets', () => {
     const boot = read('src/highfly/native/boot.ts');
-    expect(boot).toContain("import { CharacterPreview } from '../../render/characters';");
-    expect(boot).toContain("import { charactersReady } from '../../render/characters/assets';");
-    expect(boot).toContain('id="hf-preview-canvas"');
+    expect(boot).toContain('data-highfly-step="appearance"');
+    expect(boot).toContain('data-highfly-step="class"');
+    expect(boot).toContain("panel.querySelector<HTMLElement>('.mini-class-row')");
+    expect(boot).toContain("document.getElementById('offline-appearance')");
+    expect(boot).toContain("document.getElementById('offline-preview-container')");
+    expect(boot).toContain("document.getElementById('offline-class-details')");
+    expect(boot).toContain("document.getElementById('offline-skin-row')");
+    expect(boot).toContain('ENTRAR A HIGHFLY');
+    expect(boot).not.toContain('id="hf-preview-canvas"');
+  });
+
+  it('keeps all nine classes and a HIGHFLY-only subclass selection', () => {
+    const boot = read('src/highfly/native/boot.ts');
     expect(boot).toContain("'warrior'");
     expect(boot).toContain("'paladin'");
     expect(boot).toContain("'hunter'");
@@ -29,6 +39,7 @@ describe('HIGHFLY canonical Phase 0/1/2 boundary', () => {
     expect(boot).toContain("'mage'");
     expect(boot).toContain("'warlock'");
     expect(boot).toContain("'druid'");
+    expect(boot).toContain('SUBCLASE HIGHFLY');
   });
 
   it('does not reintroduce the experimental overlay/monkey-patch architecture', () => {
