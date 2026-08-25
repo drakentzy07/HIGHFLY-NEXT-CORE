@@ -5,6 +5,9 @@ on:
   push:
     branches: [ highfly-v1-clean-core ]
 
+permissions:
+  contents: write
+
 jobs:
   android:
     runs-on: ubuntu-24.04
@@ -126,12 +129,16 @@ jobs:
           cp game/public/highfly-build.json output/highfly-build.json
           ls -lh output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk output/highfly-build.json
 
-      - name: Upload Clean Core candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-V1-CLEAN-CORE-${{ github.sha }}
-          path: |
-            output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk
-            output/highfly-build.json
-          if-no-files-found: error
-          retention-days: 7
+      - name: Publish rolling Clean Core release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete highfly-clean-core-latest --cleanup-tag -y >/dev/null 2>&1 || true
+          gh release create highfly-clean-core-latest \
+            output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk \
+            output/highfly-build.json \
+            --target "$GITHUB_SHA" \
+            --title "HIGHFLY Clean Core Latest" \
+            --notes "Automated HIGHFLY v1 Clean Core candidate. ClaudeCraft upstream: 0.40.0. Commit: $GITHUB_SHA" \
+            --prerelease
