@@ -1,17 +1,17 @@
-name: Build HIGHFLY APK
+name: Build HIGHFLY Clean Core APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ highfly-v1-clean-core ]
 
 jobs:
   android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
-      - name: Checkout HIGHFLY overlay
+      - name: Checkout HIGHFLY Clean Core
         uses: actions/checkout@v4
 
       - name: Free runner disk space
@@ -21,11 +21,19 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
-      - name: Clone ClaudeCraft v0.39.0
+      - name: Fetch ClaudeCraft 0.40.0 stable engine
         run: |
-          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+          set -euo pipefail
+          rm -rf game claudecraft.tar.gz
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+            https://github.com/levy-street/world-of-claudecraft/archive/refs/heads/release/v0.40.0.tar.gz \
+            -o claudecraft.tar.gz
+          mkdir -p game
+          tar -xzf claudecraft.tar.gz --strip-components=1 -C game
+          rm -f claudecraft.tar.gz
+          node -e "const p=require('./game/package.json'); if(p.version!=='0.40.0') throw new Error('Expected ClaudeCraft 0.40.0, got '+p.version); console.log('ClaudeCraft',p.version)"
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -37,7 +45,7 @@ jobs:
           run_install: false
 
       - name: Setup Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -50,17 +58,45 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Install ClaudeCraft dependencies
+      - name: Install engine dependencies
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.4 native patch
-        working-directory: game
-        run: node ../scripts/patch-highfly-native.mjs
+      - name: Mount HIGHFLY Clean Core
+        run: |
+          set -euo pipefail
+          mkdir -p game/src/highfly game/tests
+          cp -R highfly/src/highfly/. game/src/highfly/
+          cp highfly/tests/clean_core.test.ts game/tests/highfly_clean_core.test.ts
+          mkdir -p game/public
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = {
+            product: 'HIGHFLY',
+            foundation: 'v1-clean-core',
+            upstream: { product: 'ClaudeCraft', version: '0.40.0' },
+            commit: process.env.GITHUB_SHA,
+            builtAt: new Date().toISOString(),
+            architecture: 'canonical-highfly-modules-plus-platform-adapter',
+            legacyPatchReplay: false,
+            contracts: {
+              targetlessBasic: true,
+              optionalTargetPriority: true,
+              reaverSpatialSweep: true,
+              strengthEngine: true,
+              idempotentSystemEvents: true
+            }
+          };
+          fs.writeFileSync('game/public/highfly-build.json', JSON.stringify(manifest, null, 2));
+          NODE
 
-      - name: Typecheck HIGHFLY v0.4
+      - name: Typecheck Clean Core with engine
         working-directory: game
         run: pnpm run check:ts
+
+      - name: Verify Clean Core contracts
+        working-directory: game
+        run: pnpm exec vitest run tests/highfly_clean_core.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -76,23 +112,26 @@ jobs:
         working-directory: game
         run: pnpm exec cap sync android
 
-      - name: Build playDebug APK
+      - name: Build Android playDebug APK
         working-directory: game/android
         run: ./gradlew :app:assemblePlayDebug --no-daemon
 
-      - name: Locate APK
+      - name: Locate Clean Core APK
         run: |
+          set -euo pipefail
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          df -h
+          cp "$APK" output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk
+          cp game/public/highfly-build.json output/highfly-build.json
+          ls -lh output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk output/highfly-build.json
 
-      - name: Upload HIGHFLY APK
+      - name: Upload Clean Core candidate
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-v0.4-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
+          name: HIGHFLY-V1-CLEAN-CORE-${{ github.sha }}
+          path: |
+            output/HIGHFLY_V1_CLEAN_CORE_CC040_DEBUG.apk
+            output/highfly-build.json
           if-no-files-found: error
           retention-days: 7
