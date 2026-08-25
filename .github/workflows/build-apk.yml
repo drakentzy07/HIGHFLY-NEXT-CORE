@@ -1,17 +1,27 @@
-name: Build HIGHFLY APK
+name: Build HIGHFLY Canonical APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ highfly-v1-canonical-cc040 ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: highfly-canonical-cc040
+  cancel-in-progress: true
+
+env:
+  CC040_SHA: ff2837da1f16b1740c5d0f47eef96176ff6b9e6a
 
 jobs:
   android:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
 
     steps:
-      - name: Checkout HIGHFLY overlay
+      - name: Checkout HIGHFLY canonical source
         uses: actions/checkout@v4
 
       - name: Free runner disk space
@@ -21,11 +31,19 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
-      - name: Clone ClaudeCraft v0.39.0
+      - name: Fetch exact ClaudeCraft 0.40 engine commit
         run: |
-          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+          set -euo pipefail
+          mkdir game
+          cd game
+          git init -q
+          git remote add origin https://github.com/levy-street/world-of-claudecraft.git
+          git fetch --depth=1 origin "$CC040_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$CC040_SHA"
+          test "$(node -p "require('./package.json').version")" = "0.40.0"
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -50,49 +68,123 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Install ClaudeCraft dependencies
+      - name: Install engine dependencies
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.4 native patch
-        working-directory: game
-        run: node ../scripts/patch-highfly-native.mjs
+      - name: Mount canonical HIGHFLY Phase 0-2
+        run: |
+          set -euo pipefail
+          mkdir -p game/src/highfly game/tests
+          cp -R canonical/src/highfly/. game/src/highfly/
+          cp canonical/engine-overrides/src/game/offline_mode_gate.ts game/src/game/offline_mode_gate.ts
+          cp canonical/native/capacitor.config.ts game/capacitor.config.ts
+          node canonical/integration/apply_phase12_boundary.mjs game
+          cp canonical/tests/phase12_contract.test.ts game/tests/highfly_canonical_phase12_contract.test.ts
 
-      - name: Typecheck HIGHFLY v0.4
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = {
+            product: 'HIGHFLY',
+            line: 'v1-canonical-cc040',
+            highflyCommit: process.env.GITHUB_SHA,
+            upstream: {
+              product: 'ClaudeCraft-engine',
+              version: '0.40.0',
+              commit: process.env.CC040_SHA,
+            },
+            architecture: 'single-owner-ui-plus-platform-adapter',
+            legacyPatchReplay: false,
+            experimental179Consumed: false,
+            native: {
+              appId: 'com.highfly.nexus',
+              appName: 'HIGHFLY',
+              offlineFirst: true,
+              upstreamOta: false,
+            },
+            phases: {
+              phase0Boundary: true,
+              phase1NativeBoot: true,
+              phase2CreatorFoundation: true,
+              phase3Movement: false,
+              phase4Combat: false,
+              phase5Hud: false,
+              phase6Training: false,
+              phase7System: false,
+            },
+            builtAt: new Date().toISOString(),
+          };
+          fs.writeFileSync('game/public/highfly-build.json', JSON.stringify(manifest, null, 2));
+          NODE
+
+      - name: Verify forbidden experimental patterns are absent
+        run: |
+          set -euo pipefail
+          ! grep -R "MutationObserver" game/src/highfly
+          ! grep -R "__HIGHFLY_" game/src/highfly
+          ! grep -R "readMoveInput =" game/src/highfly
+          ! grep -R "replaceAll('ClaudeCraft'" game/src/highfly
+          grep -q 'id="highfly-native-root"' game/index.html
+          grep -q 'data-highfly-canonical-entry' game/index.html
+          grep -q 'applicationId "com.highfly.nexus"' game/android/app/build.gradle
+
+      - name: Typecheck canonical HIGHFLY with engine
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Build native web bundle
+      - name: Verify canonical boot and creator contracts
+        working-directory: game
+        run: pnpm exec vitest run tests/highfly_canonical_phase12_contract.test.ts tests/character_preview_boot.test.ts
+
+      - name: Build canonical native web bundle
         working-directory: game
         env:
           VITE_NATIVE_APP: '1'
-          VITE_HIGHFLY_OFFLINE: '1'
+          VITE_HIGHFLY_NATIVE: '1'
           VITE_API_ORIGIN: 'http://127.0.0.1'
         run: |
           pnpm run build
           node scripts/build_media_manifest.mjs prune
+          grep -q 'HIGHFLY' dist/index.html
+          grep -q 'highfly-native-root' dist/index.html
 
       - name: Sync Capacitor Android
         working-directory: game
         run: pnpm exec cap sync android
 
-      - name: Build playDebug APK
+      - name: Verify canonical native wrapper
+        run: |
+          set -euo pipefail
+          grep -q '"appId": "com.highfly.nexus"' game/android/app/src/main/assets/capacitor.config.json
+          ! grep -q 'worldofclaudecraft.com' game/android/app/src/main/assets/capacitor.config.json
+          grep -q '<string name="app_name">HIGHFLY</string>' game/android/app/src/main/res/values/strings.xml
+
+      - name: Build Android playDebug APK
         working-directory: game/android
         run: ./gradlew :app:assemblePlayDebug --no-daemon
 
-      - name: Locate APK
+      - name: Locate canonical APK
         run: |
+          set -euo pipefail
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          df -h
+          cp "$APK" output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk
+          cp game/public/highfly-build.json output/highfly-build.json
+          sha256sum output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk > output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk.sha256
+          ls -lh output/*
 
-      - name: Upload HIGHFLY APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-NEXT-CORE-v0.4-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Publish rolling canonical candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete highfly-canonical-latest --cleanup-tag -y >/dev/null 2>&1 || true
+          gh release create highfly-canonical-latest \
+            output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk \
+            output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk.sha256 \
+            output/highfly-build.json \
+            --target "$GITHUB_SHA" \
+            --title "HIGHFLY v1 Canonical Phase 1-2" \
+            --notes "Canonical HIGHFLY candidate: exact ClaudeCraft 0.40 engine, owned native boot and owned creator foundation. No legacy patch replay and no experimental #179 overlays." \
+            --prerelease
