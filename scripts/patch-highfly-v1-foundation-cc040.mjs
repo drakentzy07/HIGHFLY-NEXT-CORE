@@ -32,9 +32,10 @@ if (pkg.version !== '0.40.0') {
 // 1. ATTACK is an action, never a disguised target-selection command.
 // 2. A valid manual target is only a focus preference inside the authored attack
 //    geometry. Without one, a narrow frontal soft resolver may choose a body.
-// 3. The soft resolver does NOT mutate player.targetId, so action combat never
-//    fabricates a UI selection merely to make damage legal.
-// 4. Spatial skills resolve every hostile body inside their authored geometry.
+// 3. The soft resolver does NOT mutate player.targetId.
+// 4. Spatial skills snapshot every hostile body in their authored geometry and
+//    spend resource/cooldown exactly once per cast, never once per body.
+// 5. Reaver Strike is an INSTANT action skill, not a queued MMO on-next-swing.
 // ---------------------------------------------------------------------------
 
 // Real mobile button path: bypass ClaudeCraft's attackNearest -> targetEntity seam.
@@ -105,18 +106,44 @@ if (pkg.version !== '0.40.0') {
   write(path, source);
 }
 
-// Shared pure geometry primitives. Every HIGHFLY cone/corridor/area skill will
-// converge on this layer instead of adding one-off target loops inside abilities.
+// ---------------------------------------------------------------------------
+// DATA-DRIVEN ACTION GEOMETRY — first canonical action definition.
+// ---------------------------------------------------------------------------
 write(
   'src/sim/combat/highfly_action_geometry.ts',
   `import type { SimContext } from '../sim_context';
-import { angleTo, dist2d, type Entity, normAngle } from '../types';
+import { angleTo, dist2d, MELEE_RANGE, type Entity, normAngle } from '../types';
 
-export interface HighflyConeSpec {
+export type HighflyActionShape =
+  | 'single'
+  | 'cone'
+  | 'circle'
+  | 'corridor'
+  | 'projectile'
+  | 'projectile_pierce';
+
+export interface HighflyActionDefinition {
+  shape: HighflyActionShape;
   range: number;
-  halfAngleRad: number;
-  maxTargets?: number;
-  excludeIds?: ReadonlySet<number>;
+  angleDeg?: number;
+  maxTargets: number;
+  targetPolicy: 'required' | 'soft' | 'none';
+  aimMode: 'facing' | 'target' | 'ground';
+}
+
+const HIGHFLY_ACTIONS: Readonly<Record<string, HighflyActionDefinition>> = {
+  heroic_strike: {
+    shape: 'cone',
+    range: MELEE_RANGE + 1.25,
+    angleDeg: 100,
+    maxTargets: 5,
+    targetPolicy: 'soft',
+    aimMode: 'facing',
+  },
+};
+
+export function highflyActionDefinition(abilityId: string): HighflyActionDefinition | null {
+  return HIGHFLY_ACTIONS[abilityId] ?? null;
 }
 
 export function highflyBodyInsideCone(
@@ -124,51 +151,92 @@ export function highflyBodyInsideCone(
   target: Entity,
   range: number,
   halfAngleRad: number,
+  facing = source.facing,
 ): boolean {
   if (target.dead || target.id === source.id) return false;
   if (dist2d(source.pos, target.pos) > range) return false;
-  const diff = Math.abs(normAngle(angleTo(source.pos, target.pos) - source.facing));
+  const diff = Math.abs(normAngle(angleTo(source.pos, target.pos) - facing));
   return diff <= halfAngleRad;
 }
 
 export function highflyHostilesInCone(
   ctx: SimContext,
   source: Entity,
-  spec: HighflyConeSpec,
+  def: HighflyActionDefinition,
+  facing = source.facing,
 ): Entity[] {
-  const out: Entity[] = [];
-  const exclude = spec.excludeIds ?? new Set<number>();
-  const maxTargets = Math.max(1, spec.maxTargets ?? Number.MAX_SAFE_INTEGER);
+  if (def.shape !== 'cone') return [];
+  const halfAngleRad = (((def.angleDeg ?? 0) / 2) * Math.PI) / 180;
+  const candidates: Array<{ body: Entity; distance: number; facingDiff: number }> = [];
 
-  for (const hostile of ctx.hostilesInRadius(source, source.pos, spec.range)) {
-    if (out.length >= maxTargets) break;
-    if (exclude.has(hostile.id)) continue;
-    if (!highflyBodyInsideCone(source, hostile, spec.range, spec.halfAngleRad)) continue;
-    out.push(hostile);
+  for (const hostile of ctx.hostilesInRadius(source, source.pos, def.range)) {
+    if (!highflyBodyInsideCone(source, hostile, def.range, halfAngleRad, facing)) continue;
+    const distance = dist2d(source.pos, hostile.pos);
+    const facingDiff = Math.abs(normAngle(angleTo(source.pos, hostile.pos) - facing));
+    candidates.push({ body: hostile, distance, facingDiff });
   }
 
-  return out;
+  // Stable action priority: bodies closest to the authored facing line first,
+  // then nearest distance. Geometry never depends on target selection order.
+  candidates.sort((a, b) => a.facingDiff - b.facingDiff || a.distance - b.distance || a.body.id - b.body.id);
+  return candidates.slice(0, Math.max(1, def.maxTargets)).map((entry) => entry.body);
 }
 `,
 );
 
-// Targetless basic attack + Reaver spatial sweep on the authoritative sim path.
+// ---------------------------------------------------------------------------
+// REAVER STRIKE — retire inherited on-next-swing MMO semantics.
+// Convert every rank from weaponDamage to an instant weaponStrike. Resource and
+// cooldown now belong to one cast transaction in casting_lifecycle; effect_dispatch
+// fans that single cast out over the cone bodies.
+// ---------------------------------------------------------------------------
+{
+  const path = 'src/sim/content/classes.ts';
+  let source = read(path);
+  const start = source.indexOf('  heroic_strike: {');
+  const end = source.indexOf('\n  battle_shout:', start);
+  if (start < 0 || end < 0) throw new Error('Anchor not found: heroic_strike definition block');
+  let block = source.slice(start, end);
+  if (!block.includes('onNextSwing: true')) throw new Error('Anchor not found: heroic_strike onNextSwing');
+  block = block.replace('    onNextSwing: true,\n', '');
+  block = block.replaceAll("type: 'weaponDamage'", "type: 'weaponStrike'");
+  block = block.replace(
+    "description: 'A strong attack that increases melee damage by $d. Activates on your next swing.',",
+    "description: 'Slash a broad frontal arc for weapon damage plus $d. Hits every hostile body caught by the action.',",
+  );
+  source = source.slice(0, start) + block + source.slice(end);
+  write(path, source);
+}
+
+// ---------------------------------------------------------------------------
+// TARGETLESS BASIC + SHAMAN HYBRID BASIC on authoritative Sim path.
+// Caster/no-spec Shaman gets the Nature projectile we already validated in the
+// previous HIGHFLY line; Enhancement deliberately remains authored melee.
+// ---------------------------------------------------------------------------
 {
   const path = 'src/sim/combat/auto_attack.ts';
   let source = read(path);
 
-  source = replaceRequired(
-    source,
-    `import { drawWeapon } from '../weapon_stow';`,
-    `import { drawWeapon } from '../weapon_stow';
-import { highflyHostilesInCone } from './highfly_action_geometry';`,
-    'HIGHFLY geometry import',
-  );
-
   const helperAnchor = 'export function startAutoAttack(ctx: SimContext, pid?: number): void {';
   const helper = `const HIGHFLY_BASIC_ASSIST_HALF_ANGLE = (58 * Math.PI) / 180;
-const HIGHFLY_REAVER_HALF_ANGLE = (50 * Math.PI) / 180;
-const HIGHFLY_REAVER_RANGE = MELEE_RANGE + 1.25;
+
+const HIGHFLY_SHAMAN_RANGED_BASIC = {
+  min: 3,
+  max: 6,
+  speed: 1.8,
+  maxRange: 30,
+  minRange: 0,
+  wand: true,
+  school: 'nature' as const,
+  label: 'Storm Spark',
+};
+
+function highflyRangedAutoProfile(ctx: SimContext, p: Entity, meta: PlayerMeta) {
+  if (meta.cls === 'shaman' && ctx.playerMods(meta).spec !== 'enhancement') {
+    return HIGHFLY_SHAMAN_RANGED_BASIC;
+  }
+  return rangedAutoProfile(p, meta.cls);
+}
 
 function highflyBasicTargetIsUsable(
   ctx: SimContext,
@@ -180,7 +248,7 @@ function highflyBasicTargetIsUsable(
   if (!ctx.isHostileTo(p, target)) return false;
 
   const distance = dist2d(p.pos, target.pos);
-  const ranged = rangedAutoProfile(p, meta.cls);
+  const ranged = highflyRangedAutoProfile(ctx, p, meta);
   const meleeLegal = distance <= MELEE_RANGE;
   const rangedLegal =
     ranged !== undefined &&
@@ -201,7 +269,7 @@ function highflyAcquireBasicTarget(
   p: Entity,
   meta: PlayerMeta,
 ): Entity | null {
-  const ranged = rangedAutoProfile(p, meta.cls);
+  const ranged = highflyRangedAutoProfile(ctx, p, meta);
   const maxRange = Math.max(MELEE_RANGE, ranged?.maxRange ?? 0);
   let best: Entity | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
@@ -210,7 +278,6 @@ function highflyAcquireBasicTarget(
     if (!highflyBasicTargetIsUsable(ctx, p, meta, candidate)) continue;
     const distance = dist2d(p.pos, candidate.pos);
     const facingDiff = Math.abs(normAngle(angleTo(p.pos, candidate.pos) - p.facing));
-    // Direction dominates distance: this is a frontal action-assist, never Tab targeting.
     const score = facingDiff * 5 + distance / Math.max(1, maxRange);
     if (score < bestScore) {
       best = candidate;
@@ -237,16 +304,15 @@ function highflyAcquireBasicTarget(
   if (p.auras.some((a) => isTravelFormAuraKind(a.kind))) return;
 
   // HIGHFLY: pressing ATTACK is valid even in empty space. It arms combat intent;
-  // updatePlayerAutoAttack performs a narrow frontal body query every tick.
+  // updatePlayerAutoAttack performs the restrained frontal body query every tick.
   if (p.mountKey !== '') forceDismount(ctx, p);
   if (p.sitting) ctx.standUp(p);
   if (p.weaponStowed) drawWeapon(p);
   p.autoAttack = true;
   r.meta.lastActiveTick = ctx.tickCount;
 
-  // Preserve ClaudeCraft's immediate melee aggro seed only when the player already
-  // has a valid manual hostile in the actual frontal attack geometry. Soft-acquired
-  // bodies are not written into targetId and enter combat on the landed hit instead.
+  // Preserve immediate melee aggro only for an already-selected, actually valid
+  // body. A soft-acquired body never mutates targetId and enters combat on hit.
   const manual = p.targetId !== null ? ctx.entities.get(p.targetId) : null;
   if (!highflyBasicTargetIsUsable(ctx, p, r.meta, manual)) return;
   const d = dist2d(p.pos, manual.pos);
@@ -293,63 +359,46 @@ export function stopAutoAttack`,
   const t = highflyBasicTargetIsUsable(ctx, p, meta, manual)
     ? manual
     : highflyAcquireBasicTarget(ctx, p, meta);
-  // No body in the authored frontal volume yet: stay armed and wait. We do not
-  // fabricate a selection, auto-rotate to a screen-wide nearest target, or error.
+  // No body in the authored frontal volume yet: stay armed and wait. Do not
+  // fabricate a selection, auto-rotate, or turn ATTACK into Tab-targeting.
   if (!t) return;`,
     'continuous targetless frontal acquisition',
   );
 
+  // Only the real updatePlayerAutoAttack ranged resolver remains after helper
+  // injection; helper functions above already call highflyRangedAutoProfile.
   source = replaceRequired(
     source,
-    `    const connected = meleeSwing(ctx, p, t, bonus, abilityName, {
-      autoAttackHand: 'mainhand',
-      abilityId,
-      threatFlat,
-      threatMult,
-      weaponMult,
-      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
-      autoAttack: true,
-    });`,
-    `    const connected = meleeSwing(ctx, p, t, bonus, abilityName, {
-      autoAttackHand: 'mainhand',
-      abilityId,
-      threatFlat,
-      threatMult,
-      weaponMult,
-      whiteDualWieldPenalty: dualWieldWhiteMissPenalty && abilityName === null,
-      autoAttack: true,
-      guaranteedActionHit: abilityId === 'heroic_strike',
-    });
-
-    // Reaver Strike / Skill 1 is a true 100-degree spatial slash. Resource,
-    // queue consumption and cooldown were already paid exactly once above. Each
-    // additional intersected body resolves one physical weapon hit through the
-    // shared melee engine, but cannot independently miss/dodge/parry an authored
-    // slash whose body geometry already intersected it.
-    if (connected && abilityId === 'heroic_strike') {
-      const extras = highflyHostilesInCone(ctx, p, {
-        range: HIGHFLY_REAVER_RANGE,
-        halfAngleRad: HIGHFLY_REAVER_HALF_ANGLE,
-        maxTargets: 4,
-        excludeIds: new Set([t.id]),
-      });
-      for (const hostile of extras) {
-        if (isArenaPos(p.pos.x) && !ctx.hasLineOfSight(p, hostile)) continue;
-        meleeSwing(ctx, p, hostile, bonus, abilityName, {
-          autoAttackHand: 'mainhand',
-          abilityId,
-          threatFlat: 0,
-          threatMult,
-          weaponMult,
-          whiteDualWieldPenalty: false,
-          autoAttack: false,
-          guaranteedActionHit: true,
-        });
-      }
-    }`,
-    'Reaver true spatial multi-body sweep',
+    `  const ranged = rangedAutoProfile(p, meta.cls);
+  if (ranged && d <= ranged.maxRange && d >= (ranged.wand ? 0 : ranged.minRange)) {`,
+    `  const ranged = highflyRangedAutoProfile(ctx, p, meta);
+  if (ranged && d <= ranged.maxRange && d >= (ranged.wand ? 0 : ranged.minRange)) {`,
+    'spec-aware ranged basic resolver',
   );
 
+  source = replaceRequired(
+    source,
+    `  ranged: { min: number; max: number; speed: number; wand?: boolean; school?: string },`,
+    `  ranged: {
+    min: number;
+    max: number;
+    speed: number;
+    wand?: boolean;
+    school?: string;
+    label?: string;
+  },`,
+    'ranged basic optional authored label',
+  );
+
+  source = replaceRequired(
+    source,
+    `  const label = ranged.wand ? 'Wand' : AUTO_SHOT_LABEL;`,
+    `  const label = ranged.label ?? (ranged.wand ? 'Wand' : AUTO_SHOT_LABEL);`,
+    'ranged basic combat-log label',
+  );
+
+  // Spatial action bodies are already confirmed by geometry, so they can skip the
+  // inherited MMO miss/dodge/parry table while ordinary basic attacks keep it.
   source = replaceRequired(
     source,
     `    normalizedInstant?: boolean;
@@ -395,20 +444,107 @@ export function stopAutoAttack`,
   write(path, source);
 }
 
+// Thread guaranteedActionHit through the extracted SimContext seam and Sim facade.
+for (const path of ['src/sim/sim_context.ts', 'src/sim/sim.ts']) {
+  let source = read(path);
+  source = replaceRequired(
+    source,
+    `      onEffectiveDamage?: (amount: number) => void;
+      abilityId?: string | null;`,
+    `      onEffectiveDamage?: (amount: number) => void;
+      abilityId?: string | null;
+      /** HIGHFLY: authored spatial collision already confirmed this body. */
+      guaranteedActionHit?: boolean;`,
+    `${path} meleeSwing guaranteed action seam`,
+  );
+  write(path, source);
+}
+
+// ---------------------------------------------------------------------------
+// REAVER SPATIAL RESOLUTION in the instant weaponStrike path.
+// This reuses ClaudeCraft 0.40's proven weaponStrike lifecycle: the cast pays once,
+// the primary hit runs normal talent/proc bookkeeping once, and extra bodies are
+// resolved from the same snapshot without another cast/resource/cooldown transaction.
+// ---------------------------------------------------------------------------
+{
+  const path = 'src/sim/combat/effect_dispatch.ts';
+  let source = read(path);
+
+  source = replaceRequired(
+    source,
+    `import { glacialFrontContains } from './glacial_front';`,
+    `import { glacialFrontContains } from './glacial_front';
+import { highflyActionDefinition, highflyHostilesInCone } from './highfly_action_geometry';`,
+    'HIGHFLY action geometry import in effect dispatcher',
+  );
+
+  source = replaceRequired(
+    source,
+    `          critBonus: mods.abilities[ability.id]?.critPct ?? 0,
+          abilityId: ability.id,
+          onDealt:`,
+    `          critBonus: mods.abilities[ability.id]?.critPct ?? 0,
+          abilityId: ability.id,
+          guaranteedActionHit: ability.id === 'heroic_strike',
+          onDealt:`,
+    'Reaver primary geometry-authoritative hit',
+  );
+
+  source = replaceRequired(
+    source,
+    `        });
+        if (hit && hunterStrike) {`,
+    `        });
+
+        // HIGHFLY Reaver Strike: one instant cast, one resource/cooldown payment,
+        // many body hits. Snapshot geometry at impact before secondary damage can
+        // mutate combat state. Manual target remains only the primary preference.
+        if (hit && ability.id === 'heroic_strike') {
+          const action = highflyActionDefinition(ability.id);
+          if (action?.shape === 'cone') {
+            const bodies = highflyHostilesInCone(ctx, p, action, facingOverride ?? p.facing);
+            for (const hostile of bodies) {
+              if (hostile.id === target.id || hostile.dead) continue;
+              if (!ctx.hasLineOfSight(p, hostile)) continue;
+              ctx.meleeSwing(p, hostile, bonus, ability.name, {
+                cannotBeDodged: true,
+                normalizedInstant: eff.normalized,
+                weaponMult,
+                threatFlat: 0,
+                threatMult: res.threatMult,
+                forceCrit: sureCrit,
+                critBonus: mods.abilities[ability.id]?.critPct ?? 0,
+                abilityId: ability.id,
+                guaranteedActionHit: true,
+              });
+            }
+          }
+        }
+
+        if (hit && hunterStrike) {`,
+    'Reaver instant spatial multi-body fan-out',
+  );
+
+  write(path, source);
+}
+
 // Build identity is generated during the patch step and embedded in the web bundle.
 write(
   'public/highfly-build.json',
   JSON.stringify(
     {
       product: 'HIGHFLY',
-      foundation: 'v1',
+      foundation: 'v1.0.1',
       upstream: 'ClaudeCraft 0.40.0',
       highflyCommit: process.env.GITHUB_SHA ?? 'local',
       builtAt: new Date().toISOString(),
       contracts: {
         targetlessBasic: true,
         mobileAttackActionFirst: true,
+        shamanCasterNatureBasic: true,
+        reaverInstantAction: true,
         reaverSpatialSweep: true,
+        spatialCastPaysOnce: true,
       },
     },
     null,
@@ -416,13 +552,15 @@ write(
   ) + '\n',
 );
 
-// Decisive regression: test the real mobile helper, targetless authoritative Sim,
-// absence of targetId fabrication, and Reaver's multi-body spatial contract.
+// ---------------------------------------------------------------------------
+// DECISIVE REGRESSION
+// ---------------------------------------------------------------------------
 write(
   'tests/highfly_v1_foundation.test.ts',
   `import { describe, expect, it } from 'vitest';
-import { MOBS } from '../src/sim/data';
+import { ABILITIES, MOBS } from '../src/sim/data';
 import { createMob } from '../src/sim/entity';
+import { highflyActionDefinition, highflyBodyInsideCone } from '../src/sim/combat/highfly_action_geometry';
 import { Sim } from '../src/sim/sim';
 import type { Entity, PlayerClass } from '../src/sim/types';
 import { ALL_CLASSES } from '../src/sim/types';
@@ -516,7 +654,15 @@ describe('HIGHFLY v1 Foundation on ClaudeCraft 0.40', () => {
     }
   });
 
-  it('Reaver Strike damages multiple hostile bodies inside the same frontal slash', () => {
+  it('gives caster/no-spec Shaman a Nature projectile basic while keeping Enhancement melee by contract', () => {
+    const auto = fs.readFileSync('src/sim/combat/auto_attack.ts', 'utf8');
+    expect(auto).toContain("meta.cls === 'shaman'");
+    expect(auto).toContain("ctx.playerMods(meta).spec !== 'enhancement'");
+    expect(auto).toContain("school: 'nature' as const");
+    expect(auto).toContain("label: 'Storm Spark'");
+  });
+
+  it('Reaver Strike is an instant cast transaction and damages every body in its 100-degree cone', () => {
     const sim = new Sim({ seed: 1101, playerClass: 'warrior' });
     sim.setPlayerLevel(4);
     killAmbientMobs(sim);
@@ -526,13 +672,24 @@ describe('HIGHFLY v1 Foundation on ClaudeCraft 0.40', () => {
     const primary = addDummy(sim, 99201, 10, 13);
     const secondary = addDummy(sim, 99202, 11, 13.1);
     const outside = addDummy(sim, 99203, 13.4, 10);
+    const action = highflyActionDefinition('heroic_strike');
+
+    expect(action?.shape).toBe('cone');
+    expect(action?.angleDeg).toBe(100);
+    expect(action).not.toBeNull();
+    expect(highflyBodyInsideCone(p, secondary, action!.range, ((action!.angleDeg ?? 0) * Math.PI) / 360)).toBe(true);
+    expect(highflyBodyInsideCone(p, outside, action!.range, ((action!.angleDeg ?? 0) * Math.PI) / 360)).toBe(false);
 
     sim.targetEntity(primary.id);
     p.resource = p.maxResource;
+    const resourceBefore = p.resource;
     sim.castAbility('heroic_strike');
-    sim.startAutoAttack();
-    for (let tick = 0; tick < 20 * 8; tick += 1) sim.tick();
+    for (let tick = 0; tick < 4; tick += 1) sim.tick();
 
+    expect(ABILITIES.heroic_strike.onNextSwing).not.toBe(true);
+    expect(ABILITIES.heroic_strike.effects.every((effect) => effect.type === 'weaponStrike')).toBe(true);
+    expect(p.queuedOnSwing, 'Reaver must never queue behind auto-attack').toBeNull();
+    expect(resourceBefore - p.resource, 'one cast pays exactly one Reaver cost').toBe(15);
     expect(primary.hp, 'primary').toBeLessThan(primary.maxHp);
     expect(secondary.hp, 'secondary inside 100-degree slash').toBeLessThan(secondary.maxHp);
     expect(outside.hp, 'outside body').toBe(outside.maxHp);
@@ -541,4 +698,4 @@ describe('HIGHFLY v1 Foundation on ClaudeCraft 0.40', () => {
 `,
 );
 
-console.log('[HIGHFLY v1 foundation] ClaudeCraft 0.40 action-combat foundation applied.');
+console.log('[HIGHFLY v1 foundation] ClaudeCraft 0.40 action-combat foundation v1.0.1 applied.');
