@@ -77,7 +77,12 @@ jobs:
         working-directory: game
         env:
           GITHUB_SHA: ${{ github.sha }}
-        run: node ../scripts/patch-highfly-v1-foundation-cc040.mjs
+        run: |
+          node ../scripts/patch-highfly-v1-foundation-cc040.mjs
+          # CI-harness-only correction: the generated contract reads its patched
+          # source to assert Shaman's authored Nature basic. Keep product mutation
+          # in the single Foundation layer; this line only fixes the test import.
+          sed -i "1i import fs from 'node:fs';" tests/highfly_v1_foundation.test.ts
 
       - name: Typecheck HIGHFLY Foundation
         working-directory: game
