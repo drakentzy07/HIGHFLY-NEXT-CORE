@@ -1,4 +1,4 @@
-name: Build HIGHFLY Clean Core APK
+name: Build HIGHFLY Integrated APK
 
 on:
   workflow_dispatch:
@@ -69,31 +69,36 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Mount HIGHFLY Clean Core and native shell
+      - name: Mount HIGHFLY product and integrate real runtime
         run: |
           set -euo pipefail
           mkdir -p game/src/highfly game/tests game/public
           cp -R highfly/src/highfly/. game/src/highfly/
           cp highfly/tests/clean_core.test.ts game/tests/highfly_clean_core.test.ts
           cp highfly/tests/native_shell_contract.test.ts game/tests/highfly_native_shell_contract.test.ts
+          cp highfly/tests/runtime_integration.test.ts game/tests/highfly_runtime_integration.test.ts
 
-          # Deliberate, owned seams. These are complete HIGHFLY files, not a replay
-          # of legacy source patches.
+          # Owned complete files at the platform boundary.
           cp highfly/engine-overrides/src/game/offline_mode_gate.ts game/src/game/offline_mode_gate.ts
           cp highfly/native/capacitor.config.ts game/capacitor.config.ts
           cp highfly/native/highfly_native_boot.js game/public/highfly-native-boot.js
           cp highfly/native/highfly_native.css game/public/highfly-native.css
           node highfly/native/apply_native_shell.mjs game
 
+          # ONE pinned ClaudeCraft-0.40 integration installer. It only exposes the
+          # real Sim/Input to src/highfly and routes mobile Attack into HIGHFLY;
+          # gameplay logic itself remains canonical TypeScript under src/highfly.
+          node highfly/integration/apply_cc040_integration.mjs game
+
           node - <<'NODE'
           const fs = require('fs');
           const manifest = {
             product: 'HIGHFLY',
-            foundation: 'v1-clean-core',
-            upstream: { product: 'ClaudeCraft', version: '0.40.0' },
+            foundation: 'v1-clean-core-integrated',
+            upstream: { product: 'ClaudeCraft-engine', version: '0.40.0' },
             commit: process.env.GITHUB_SHA,
             builtAt: new Date().toISOString(),
-            architecture: 'canonical-highfly-modules-plus-platform-adapter',
+            architecture: 'canonical-highfly-runtime-plus-cc040-adapter',
             legacyPatchReplay: false,
             native: {
               appId: 'com.highfly.nexus',
@@ -102,10 +107,17 @@ jobs:
               upstreamOta: false
             },
             contracts: {
+              realSimCombat: true,
               targetlessBasic: true,
               optionalTargetPriority: true,
-              reaverSpatialSweep: true,
-              strengthEngine: true,
+              multiBodySkillOne: true,
+              spatialCastPaysOnce: true,
+              actionMovementNoMoonwalk: true,
+              directionalDash: true,
+              creator3dPreview: true,
+              trainingSetPersistence: true,
+              testedRmSeparateFromE1rm: true,
+              sessionVolumeAndPr: true,
               idempotentSystemEvents: true,
               highflyNativeIdentity: true,
               offlineProductionBoot: true,
@@ -115,13 +127,24 @@ jobs:
           fs.writeFileSync('game/public/highfly-build.json', JSON.stringify(manifest, null, 2));
           NODE
 
-      - name: Typecheck Clean Core with engine
+      - name: Verify integration seams are present
+        run: |
+          set -euo pipefail
+          grep -q 'HIGHFLY_RUNTIME_CC040' game/src/main.ts
+          grep -q 'HIGHFLY_CREATOR_CC040' game/src/main.ts
+          grep -q 'HIGHFLY_ATTACK_RUNTIME' game/src/ui/hud/action_bar/hotbar.ts
+          test -f game/src/highfly/runtime/claudecraft040.ts
+          test -f game/src/highfly/runtime/install.ts
+          test -f game/src/highfly/training/session.ts
+          test -f game/src/highfly/movement/movement.ts
+
+      - name: Typecheck integrated HIGHFLY with engine
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Verify Clean Core and native contracts
+      - name: Verify core native and REAL runtime contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_clean_core.test.ts tests/highfly_native_shell_contract.test.ts
+        run: pnpm exec vitest run tests/highfly_clean_core.test.ts tests/highfly_native_shell_contract.test.ts tests/highfly_runtime_integration.test.ts
 
       - name: Build native offline web bundle
         working-directory: game
@@ -137,7 +160,7 @@ jobs:
         working-directory: game
         run: pnpm exec cap sync android
 
-      - name: Verify generated native wrapper
+      - name: Verify generated HIGHFLY native wrapper
         run: |
           set -euo pipefail
           grep -q '"appId": "com.highfly.nexus"' game/android/app/src/main/assets/capacitor.config.json
@@ -153,26 +176,26 @@ jobs:
         working-directory: game/android
         run: ./gradlew :app:assemblePlayDebug --no-daemon
 
-      - name: Locate Clean Core offline APK
+      - name: Locate integrated HIGHFLY APK
         run: |
           set -euo pipefail
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_V1_CLEAN_CORE_CC040_OFFLINE_DEBUG.apk
+          cp "$APK" output/HIGHFLY_V1_INTEGRATED_CC040_OFFLINE_DEBUG.apk
           cp game/public/highfly-build.json output/highfly-build.json
-          ls -lh output/HIGHFLY_V1_CLEAN_CORE_CC040_OFFLINE_DEBUG.apk output/highfly-build.json
+          ls -lh output/HIGHFLY_V1_INTEGRATED_CC040_OFFLINE_DEBUG.apk output/highfly-build.json
 
-      - name: Publish rolling Clean Core release
+      - name: Publish rolling integrated HIGHFLY release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release delete highfly-clean-core-latest --cleanup-tag -y >/dev/null 2>&1 || true
           gh release create highfly-clean-core-latest \
-            output/HIGHFLY_V1_CLEAN_CORE_CC040_OFFLINE_DEBUG.apk \
+            output/HIGHFLY_V1_INTEGRATED_CC040_OFFLINE_DEBUG.apk \
             output/highfly-build.json \
             --target "$GITHUB_SHA" \
-            --title "HIGHFLY Clean Core Latest" \
-            --notes "Automated HIGHFLY v1 Clean Core OFFLINE candidate. ClaudeCraft engine: 0.40.0. Upstream OTA disabled. Commit: $GITHUB_SHA" \
+            --title "HIGHFLY v1 Integrated Latest" \
+            --notes "HIGHFLY v1 integrated offline candidate. Real Sim combat + movement/dash + creator preview + Training/RM/System runtime on ClaudeCraft 0.40 engine. Commit: $GITHUB_SHA" \
             --prerelease

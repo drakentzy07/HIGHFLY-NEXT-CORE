@@ -1,11 +1,23 @@
 export type Vec2 = { x: number; z: number };
 
+export type HighflyClassId =
+  | 'warrior'
+  | 'paladin'
+  | 'hunter'
+  | 'rogue'
+  | 'priest'
+  | 'shaman'
+  | 'mage'
+  | 'warlock'
+  | 'druid';
+
 export type ActionShape = 'single' | 'cone' | 'circle' | 'corridor' | 'projectile';
 export type TargetPolicy = 'optional-focus' | 'required' | 'none';
 export type AimMode = 'facing' | 'input-vector' | 'point';
 
 export type ActionDefinition = {
   id: string;
+  label?: string;
   shape: ActionShape;
   range: number;
   angleDeg?: number;
@@ -15,6 +27,10 @@ export type ActionDefinition = {
   targetPolicy: TargetPolicy;
   aimMode: AimMode;
   piercing?: boolean;
+  resourceCost?: number;
+  cooldownMs?: number;
+  damageScale?: number;
+  damageSchool?: string;
 };
 
 export type CombatBody = {
@@ -32,7 +48,7 @@ export type ActionRequest = {
 
 const EPS = 1e-6;
 
-function normalized(v: Vec2): Vec2 {
+export function normalized(v: Vec2): Vec2 {
   const len = Math.hypot(v.x, v.z);
   if (len <= EPS) return { x: 0, z: 1 };
   return { x: v.x / len, z: v.z / len };
@@ -95,20 +111,64 @@ export function resolveActionBodies(
 
 export const HIGHFLY_BASIC_MELEE: ActionDefinition = {
   id: 'basic_melee',
+  label: 'ATAQUE',
   shape: 'single',
-  range: 3.2,
+  range: 5,
   angleDeg: 58,
   maxTargets: 1,
   targetPolicy: 'optional-focus',
   aimMode: 'facing',
+  cooldownMs: 420,
+  damageScale: 1,
+  damageSchool: 'physical',
+};
+
+export const HIGHFLY_BASIC_RANGED: ActionDefinition = {
+  id: 'basic_ranged',
+  label: 'ATAQUE',
+  shape: 'projectile',
+  range: 28,
+  width: 2.4,
+  maxTargets: 1,
+  targetPolicy: 'optional-focus',
+  aimMode: 'facing',
+  cooldownMs: 520,
+  damageScale: 0.95,
 };
 
 export const HIGHFLY_REAVER_STRIKE: ActionDefinition = {
   id: 'reaver_strike',
+  label: 'REAVER',
   shape: 'cone',
   range: 5,
   angleDeg: 100,
   maxTargets: 5,
   targetPolicy: 'optional-focus',
   aimMode: 'facing',
+  resourceCost: 15,
+  cooldownMs: 850,
+  damageScale: 1.35,
+  damageSchool: 'physical',
 };
+
+const CLASS_SKILL_ONE: Readonly<Record<HighflyClassId, ActionDefinition>> = {
+  warrior: HIGHFLY_REAVER_STRIKE,
+  paladin: { id: 'radiant_sweep', label: 'BARRIDO', shape: 'circle', range: 5, radius: 5, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 12, cooldownMs: 1000, damageScale: 1.15, damageSchool: 'holy' },
+  hunter: { id: 'piercing_shot', label: 'PERFORANTE', shape: 'corridor', range: 24, width: 3.2, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', piercing: true, resourceCost: 12, cooldownMs: 900, damageScale: 1.2, damageSchool: 'physical' },
+  rogue: { id: 'cross_cut', label: 'CORTE', shape: 'cone', range: 5, angleDeg: 88, maxTargets: 4, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 18, cooldownMs: 700, damageScale: 1.25, damageSchool: 'physical' },
+  priest: { id: 'holy_pulse', label: 'PULSO', shape: 'circle', range: 6, radius: 6, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 10, cooldownMs: 1100, damageScale: 1.05, damageSchool: 'holy' },
+  shaman: { id: 'storm_burst', label: 'TORMENTA', shape: 'circle', range: 6, radius: 6, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 12, cooldownMs: 1000, damageScale: 1.1, damageSchool: 'nature' },
+  mage: { id: 'arcane_burst', label: 'ARCANO', shape: 'circle', range: 6, radius: 6, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 12, cooldownMs: 1000, damageScale: 1.15, damageSchool: 'arcane' },
+  warlock: { id: 'abyss_wave', label: 'ABISMO', shape: 'cone', range: 8, angleDeg: 105, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 12, cooldownMs: 1000, damageScale: 1.15, damageSchool: 'shadow' },
+  druid: { id: 'wild_sweep', label: 'ZARPAZO', shape: 'cone', range: 5, angleDeg: 100, maxTargets: 5, targetPolicy: 'optional-focus', aimMode: 'facing', resourceCost: 12, cooldownMs: 850, damageScale: 1.2, damageSchool: 'nature' },
+};
+
+const RANGED_BASIC_CLASSES = new Set<HighflyClassId>(['hunter', 'priest', 'shaman', 'mage', 'warlock']);
+
+export function basicActionForClass(cls: HighflyClassId): ActionDefinition {
+  return RANGED_BASIC_CLASSES.has(cls) ? HIGHFLY_BASIC_RANGED : HIGHFLY_BASIC_MELEE;
+}
+
+export function skillOneForClass(cls: HighflyClassId): ActionDefinition {
+  return CLASS_SKILL_ONE[cls];
+}

@@ -1,0 +1,230 @@
+/* HIGHFLY runtime owns this layer. ClaudeCraft remains the renderer/sim below it. */
+body.highfly-runtime-integrated #mobile-action-ring {
+  display: none !important;
+}
+
+#highfly-combat-dock {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 920;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+  font-family: system-ui, sans-serif;
+}
+
+.hf-combat-btn {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 50%;
+  border: 2px solid rgba(116, 220, 255, 0.82);
+  background: radial-gradient(circle at 45% 35%, rgba(72, 58, 155, 0.96), rgba(10, 12, 28, 0.98) 68%);
+  color: #f8fbff;
+  box-shadow: 0 0 18px rgba(51, 196, 255, 0.28), inset 0 0 18px rgba(121, 79, 255, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+}
+.hf-combat-btn b { font-size: 12px; letter-spacing: .06em; }
+.hf-combat-btn small { margin-top: 4px; font-size: 8px; color: #83e5ff; }
+.hf-combat-btn.hf-attack { width: 94px; height: 94px; border-width: 3px; }
+.hf-combat-btn.hf-skill { width: 76px; height: 76px; border-color: #9b78ff; }
+.hf-combat-btn.hf-dash { width: 68px; height: 68px; border-color: #66f1dd; }
+.hf-combat-btn.hf-hit { transform: scale(.94); box-shadow: 0 0 32px rgba(95, 224, 255, .82), inset 0 0 28px rgba(139, 92, 255, .55); }
+.hf-combat-btn.hf-blocked { opacity: .55; transform: scale(.97); }
+
+#highfly-main-nav {
+  position: fixed;
+  left: 50%;
+  top: max(8px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 910;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(96px, 1fr));
+  width: min(580px, 52vw);
+  padding: 5px;
+  gap: 5px;
+  border: 1px solid rgba(83, 193, 255, .42);
+  border-radius: 14px;
+  background: rgba(3, 6, 17, .84);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 22px rgba(93, 64, 255, .2);
+}
+#highfly-main-nav button {
+  min-height: 35px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(24, 28, 53, .84);
+  color: #dff7ff;
+  font: 700 10px/1 system-ui, sans-serif;
+  letter-spacing: .05em;
+}
+#highfly-main-nav button:active { background: rgba(83, 63, 170, .9); }
+
+#highfly-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: rgba(1, 2, 9, .74);
+  backdrop-filter: blur(8px);
+}
+#highfly-overlay[hidden] { display: none !important; }
+.hf-window {
+  width: min(1060px, 88vw);
+  max-height: 80vh;
+  overflow: auto;
+  border: 1px solid rgba(113, 82, 255, .75);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(10, 12, 27, .98), rgba(4, 7, 18, .98));
+  box-shadow: 0 0 42px rgba(65, 65, 255, .26);
+  color: #ecf9ff;
+  font-family: system-ui, sans-serif;
+}
+.hf-window > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(103, 218, 255, .28);
+  background: rgba(7, 9, 23, .96);
+  color: #8ceaff;
+  letter-spacing: .12em;
+}
+.hf-window > header button { border: 0; background: transparent; color: white; font-size: 26px; }
+.hf-training-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto 1fr auto;
+  gap: 10px;
+  padding: 14px;
+  align-items: end;
+}
+.hf-training-form label { display: grid; gap: 5px; color: #8edff5; font-size: 10px; font-weight: 800; }
+.hf-training-form input, .hf-training-form select {
+  height: 40px;
+  min-width: 0;
+  border: 1px solid rgba(104, 126, 204, .55);
+  border-radius: 9px;
+  background: #080b17;
+  color: white;
+  padding: 0 10px;
+  font-size: 15px;
+}
+.hf-training-form button, .hf-training-actions button {
+  min-height: 40px;
+  border: 1px solid #745cff;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #4437a3, #171c43);
+  color: white;
+  font-weight: 800;
+  font-size: 11px;
+}
+#hf-training-summary { padding: 0 14px 14px; }
+.hf-training-kpis { display: flex; gap: 10px; margin-bottom: 10px; }
+.hf-training-kpis span { flex: 1; padding: 10px; border-radius: 10px; background: rgba(41, 54, 102, .45); color: #8bdff5; font-size: 10px; }
+.hf-training-kpis b { display: block; margin-top: 3px; color: white; font-size: 16px; }
+#hf-training-summary table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#hf-training-summary th, #hf-training-summary td { padding: 7px 9px; border-bottom: 1px solid rgba(115, 143, 211, .18); text-align: left; }
+.hf-training-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 14px 14px; }
+.hf-hunter-grid { display: grid; grid-template-columns: 140px 1fr 1.2fr; gap: 20px; padding: 24px; align-items: center; }
+.hf-rank { display: grid; place-items: center; aspect-ratio: 1; border: 2px solid #765cff; border-radius: 50%; color: #88eaff; font-size: 42px; font-weight: 900; }
+.hf-rank small { font-size: 9px; }
+.hf-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.hf-stats span { padding: 10px; border-radius: 9px; background: rgba(41, 54, 102, .5); font-size: 11px; color: #8fdff7; }
+.hf-stats b { display: block; color: white; font-size: 17px; }
+.hf-system-copy { padding: 28px; text-align: center; }
+.hf-system-copy h2 { color: #8ceaff; font-size: 22px; }
+
+/* Creator: one fixed landscape composition, no horizontal scroll, real 3D turntable. */
+html.highfly-native-shell #offline-select.highfly-creator {
+  width: min(1420px, calc(100vw - 34px)) !important;
+  height: min(680px, calc(100vh - 28px)) !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 14px 18px 16px !important;
+  box-sizing: border-box !important;
+}
+html.highfly-native-shell #offline-select.highfly-creator > .auth-title {
+  margin: 2px 0 8px !important;
+  font-size: clamp(19px, 2.2vw, 30px) !important;
+  line-height: 1 !important;
+}
+html.highfly-native-shell #offline-select.highfly-creator .charselect-layout {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(430px, .9fr) minmax(440px, 1.1fr) !important;
+  gap: 18px !important;
+  overflow: hidden !important;
+}
+html.highfly-native-shell #offline-select.highfly-creator .charselect-col-left,
+html.highfly-native-shell #offline-select.highfly-creator .charselect-col-right {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+html.highfly-native-shell #offline-select.highfly-creator .charselect-col-left {
+  overflow-y: auto !important;
+  padding-right: 8px !important;
+}
+html.highfly-native-shell #offline-select.highfly-creator .charselect-col-right {
+  display: grid !important;
+  grid-template-rows: minmax(280px, 1fr) auto !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+html.highfly-native-shell #offline-preview-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 280px !important;
+  display: block !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(101, 91, 205, .66) !important;
+  border-radius: 14px !important;
+  background: radial-gradient(circle at 50% 58%, rgba(59, 58, 118, .32), rgba(2, 3, 10, .98) 68%) !important;
+}
+#highfly-creator-preview-canvas { display: block; width: 100% !important; height: 100% !important; touch-action: pan-x; }
+html.highfly-native-shell #offline-class-details { display: none !important; }
+#highfly-class-card {
+  min-height: 104px;
+  display: grid;
+  grid-template-columns: 1fr 1.7fr;
+  gap: 4px 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(102, 218, 255, .28);
+  border-radius: 12px;
+  background: rgba(8, 11, 25, .88);
+  color: #dff8ff;
+  font-family: system-ui, sans-serif;
+}
+#highfly-class-card strong { color: #8beaff; font-size: 15px; letter-spacing: .08em; }
+#highfly-class-card span { color: white; font-size: 12px; }
+#highfly-class-card small { color: #bacce0; font-size: 10px; }
+#highfly-subclass-wrap { display: grid; gap: 5px; margin-top: 10px; color: #8ce9ff; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .08em; }
+#highfly-subclass { height: 39px; border: 1px solid rgba(102, 218, 255, .4); border-radius: 9px; background: #080b17; color: white; padding: 0 10px; }
+html.highfly-native-shell #offline-select .highfly-class-active { box-shadow: 0 0 0 2px #6bdfff, 0 0 18px rgba(104, 81, 255, .55) !important; }
+
+@media (max-height: 620px) {
+  html.highfly-native-shell #offline-select.highfly-creator { height: calc(100vh - 12px) !important; padding-top: 8px !important; }
+  html.highfly-native-shell #offline-select.highfly-creator .charselect-col-right { grid-template-rows: minmax(220px, 1fr) auto !important; }
+  html.highfly-native-shell #offline-preview-container { min-height: 220px !important; }
+  #highfly-native-brand { margin-bottom: 3px !important; }
+}
