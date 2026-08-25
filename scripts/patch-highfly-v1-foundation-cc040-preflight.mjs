@@ -24,9 +24,11 @@ if (!block.includes('abilityId?: string | null;')) {
   if (!block.includes(anchor)) {
     throw new Error('ClaudeCraft 0.40 Sim.meleeSwing option seam not found');
   }
+  // Keep this exact two-line seam because the single Foundation layer threads
+  // guaranteedActionHit through it immediately afterwards.
   block = block.replace(
     anchor,
-    `      onEffectiveDamage?: (amount: number) => void;\n      // Keep the Sim facade structurally aligned with SimContext/auto_attack.\n      abilityId?: string | null;\n    },`,
+    `      onEffectiveDamage?: (amount: number) => void;\n      abilityId?: string | null;\n    },`,
   );
   source = source.slice(0, methodStart) + block + source.slice(methodEnd + 4);
   fs.writeFileSync(path, source, 'utf8');
