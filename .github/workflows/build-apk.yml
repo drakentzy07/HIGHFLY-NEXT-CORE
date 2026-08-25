@@ -78,6 +78,7 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
         run: |
+          node ../scripts/patch-highfly-v1-foundation-cc040-preflight.mjs
           node ../scripts/patch-highfly-v1-foundation-cc040.mjs
           # CI-harness-only correction: the generated contract reads its patched
           # source to assert Shaman's authored Nature basic. Keep product mutation
