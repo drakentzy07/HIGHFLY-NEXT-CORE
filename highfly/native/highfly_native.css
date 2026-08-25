@@ -1,0 +1,63 @@
+html.highfly-native-shell,
+html.highfly-native-shell body {
+  background: #02030a !important;
+}
+
+html.highfly-native-shell body:not(.highfly-native-ready) #start-screen {
+  visibility: hidden !important;
+}
+
+html.highfly-native-shell .homepage-header,
+html.highfly-native-shell .homepage-footer,
+html.highfly-native-shell .official-site-copy,
+html.highfly-native-shell #title-logo,
+html.highfly-native-shell #intro-logo,
+html.highfly-native-shell #btn-online {
+  display: none !important;
+}
+
+html.highfly-native-shell #homepage-views-container {
+  padding-top: max(8px, env(safe-area-inset-top)) !important;
+  padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+}
+
+html.highfly-native-shell #offline-select {
+  border-color: rgba(102, 80, 255, 0.65) !important;
+  box-shadow:
+    0 0 34px rgba(92, 72, 255, 0.22),
+    inset 0 0 24px rgba(0, 208, 255, 0.05) !important;
+}
+
+#highfly-native-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+#highfly-native-brand strong {
+  font-family: system-ui, sans-serif;
+  font-size: clamp(26px, 4vw, 44px);
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: #f7f7ff;
+  text-shadow:
+    0 0 10px rgba(0, 208, 255, 0.8),
+    0 0 22px rgba(109, 75, 255, 0.75);
+}
+
+#highfly-native-brand span {
+  font-family: system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #78dcff;
+}
+
+html.highfly-native-shell #btn-start-offline {
+  border-color: rgba(121, 89, 255, 0.8) !important;
+  box-shadow: 0 0 18px rgba(78, 205, 255, 0.2) !important;
+}
