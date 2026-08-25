@@ -72,7 +72,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Mount canonical HIGHFLY Phase 0-2.1
+      - name: Mount canonical HIGHFLY Phase 0-3
         run: |
           set -euo pipefail
           mkdir -p game/src/highfly game/tests
@@ -80,7 +80,10 @@ jobs:
           cp canonical/engine-overrides/src/game/offline_mode_gate.ts game/src/game/offline_mode_gate.ts
           cp canonical/native/capacitor.config.ts game/capacitor.config.ts
           node canonical/integration/apply_phase12_boundary.mjs game
+          node canonical/integration/apply_phase3_movement.mjs game
           cp canonical/tests/phase12_contract.test.ts game/tests/highfly_canonical_phase12_contract.test.ts
+          cp canonical/tests/phase3_movement.test.ts game/tests/highfly_canonical_phase3_movement.test.ts
+          cp canonical/tests/phase3_integration_contract.test.ts game/tests/highfly_canonical_phase3_integration.test.ts
 
           node - <<'NODE'
           const fs = require('fs');
@@ -107,7 +110,9 @@ jobs:
               phase1NativeBoot: true,
               phase2CreatorFoundation: true,
               phase21CreatorTwoStepReuse: true,
-              phase3Movement: false,
+              phase3Movement: true,
+              phase3CameraIndependent: true,
+              phase3DashDirectionCore: true,
               phase4Combat: false,
               phase5Hud: false,
               phase6Training: false,
@@ -128,14 +133,24 @@ jobs:
           grep -q 'id="highfly-native-root"' game/index.html
           grep -q 'data-highfly-canonical-entry' game/index.html
           grep -q 'applicationId "com.highfly.nexus"' game/android/app/build.gradle
+          grep -q 'resolveHighflyLocomotion' game/src/main.ts
 
       - name: Typecheck canonical HIGHFLY with engine
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Verify canonical creator and upstream appearance contracts
+      - name: Verify canonical creator movement and upstream contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_canonical_phase12_contract.test.ts tests/character_preview_boot.test.ts tests/appearance_creator_rows.test.ts
+        run: >-
+          pnpm exec vitest run
+          tests/highfly_canonical_phase12_contract.test.ts
+          tests/highfly_canonical_phase3_movement.test.ts
+          tests/highfly_canonical_phase3_integration.test.ts
+          tests/character_preview_boot.test.ts
+          tests/appearance_creator_rows.test.ts
+          tests/input.test.ts
+          tests/move_input.test.ts
+          tests/movement_visual.test.ts
 
       - name: Build canonical native web bundle
         working-directory: game
@@ -170,9 +185,9 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk
+          cp "$APK" output/HIGHFLY_V1_CANONICAL_CC040_MOVEMENT3_DEBUG.apk
           cp game/public/highfly-build.json output/highfly-build.json
-          sha256sum output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk > output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk.sha256
+          sha256sum output/HIGHFLY_V1_CANONICAL_CC040_MOVEMENT3_DEBUG.apk > output/HIGHFLY_V1_CANONICAL_CC040_MOVEMENT3_DEBUG.apk.sha256
           ls -lh output/*
 
       - name: Publish rolling canonical candidate
@@ -182,10 +197,10 @@ jobs:
           set -euo pipefail
           gh release delete highfly-canonical-latest --cleanup-tag -y >/dev/null 2>&1 || true
           gh release create highfly-canonical-latest \
-            output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk \
-            output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk.sha256 \
+            output/HIGHFLY_V1_CANONICAL_CC040_MOVEMENT3_DEBUG.apk \
+            output/HIGHFLY_V1_CANONICAL_CC040_MOVEMENT3_DEBUG.apk.sha256 \
             output/highfly-build.json \
             --target "$GITHUB_SHA" \
-            --title "HIGHFLY v1 Canonical Creator 2.1" \
-            --notes "Canonical creator candidate: two-step HIGHFLY composition reusing ClaudeCraft 0.40 appearance editor, real preview, class cards and stat panel. No duplicate creator UI, no legacy patch replay, no #179 overlays." \
+            --title "HIGHFLY v1 Canonical Movement 3" \
+            --notes "Canonical candidate: Creator 2.1 plus action-RPG locomotion. Joystick direction turns the hunter into travel, native touch camera is independent from body facing, click-to-move and the engine movement stack remain upstream-owned. Dash direction core is included; dedicated HIGHFLY HUD control arrives with the single-owner HUD phase." \
             --prerelease
