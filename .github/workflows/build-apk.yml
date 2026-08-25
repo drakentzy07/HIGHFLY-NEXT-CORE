@@ -1,18 +1,29 @@
-name: Build HIGHFLY APK
+name: Build HIGHFLY Foundation APK
 
 on:
   workflow_dispatch:
   push:
+    branches: [ highfly-v1-foundation-cc040 ]
+  pull_request:
     branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highfly-foundation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
 
     steps:
-      - name: Checkout HIGHFLY overlay
+      - name: Checkout HIGHFLY Foundation
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Free runner disk space
         run: |
@@ -21,11 +32,19 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           df -h
 
-      - name: Clone ClaudeCraft v0.39.0
+      - name: Fetch ClaudeCraft 0.40.0 stable snapshot
         run: |
-          git clone --depth 1 --branch release/v0.39.0 https://github.com/levy-street/world-of-claudecraft.git game
+          set -euo pipefail
+          rm -rf game claudecraft.tar.gz
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+            https://github.com/levy-street/world-of-claudecraft/archive/refs/heads/release/v0.40.0.tar.gz \
+            -o claudecraft.tar.gz
+          mkdir -p game
+          tar -xzf claudecraft.tar.gz --strip-components=1 -C game
+          rm -f claudecraft.tar.gz
+          node -e "const p=require('./game/package.json'); if(p.version!=='0.40.0') throw new Error('Expected ClaudeCraft 0.40.0, got '+p.version); console.log('ClaudeCraft',p.version)"
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -54,13 +73,19 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Apply HIGHFLY v0.4 native patch
+      - name: Apply single HIGHFLY v1 Foundation layer
         working-directory: game
-        run: node ../scripts/patch-highfly-native.mjs
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: node ../scripts/patch-highfly-v1-foundation-cc040.mjs
 
-      - name: Typecheck HIGHFLY v0.4
+      - name: Typecheck HIGHFLY Foundation
         working-directory: game
         run: pnpm run check:ts
+
+      - name: Verify action-combat foundation contracts
+        working-directory: game
+        run: pnpm exec vitest run tests/highfly_v1_foundation.test.ts tests/hotbar.test.ts
 
       - name: Build native web bundle
         working-directory: game
@@ -76,23 +101,28 @@ jobs:
         working-directory: game
         run: pnpm exec cap sync android
 
-      - name: Build playDebug APK
+      - name: Build Android playDebug APK
         working-directory: game/android
         run: ./gradlew :app:assemblePlayDebug --no-daemon
 
-      - name: Locate APK
+      - name: Locate Foundation APK
         run: |
+          set -euo pipefail
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
-          ls -lh output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
+          cp "$APK" output/HIGHFLY_FOUNDATION_CC040_DEBUG.apk
+          cp game/public/highfly-build.json output/highfly-build.json
+          ls -lh output/HIGHFLY_FOUNDATION_CC040_DEBUG.apk output/highfly-build.json
+          cat output/highfly-build.json
           df -h
 
-      - name: Upload HIGHFLY APK
+      - name: Upload Foundation candidate
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXT-CORE-v0.4-APK
-          path: output/HIGHFLY_NEXT_CORE_v0.4_DEBUG.apk
+          name: HIGHFLY-FOUNDATION-CC040-${{ github.sha }}
+          path: |
+            output/HIGHFLY_FOUNDATION_CC040_DEBUG.apk
+            output/highfly-build.json
           if-no-files-found: error
           retention-days: 7
