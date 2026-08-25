@@ -72,7 +72,7 @@ jobs:
         working-directory: game
         run: pnpm install --frozen-lockfile
 
-      - name: Mount canonical HIGHFLY Phase 0-2
+      - name: Mount canonical HIGHFLY Phase 0-2.1
         run: |
           set -euo pipefail
           mkdir -p game/src/highfly game/tests
@@ -106,6 +106,7 @@ jobs:
               phase0Boundary: true,
               phase1NativeBoot: true,
               phase2CreatorFoundation: true,
+              phase21CreatorTwoStepReuse: true,
               phase3Movement: false,
               phase4Combat: false,
               phase5Hud: false,
@@ -132,9 +133,9 @@ jobs:
         working-directory: game
         run: pnpm run check:ts
 
-      - name: Verify canonical boot and creator contracts
+      - name: Verify canonical creator and upstream appearance contracts
         working-directory: game
-        run: pnpm exec vitest run tests/highfly_canonical_phase12_contract.test.ts tests/character_preview_boot.test.ts
+        run: pnpm exec vitest run tests/highfly_canonical_phase12_contract.test.ts tests/character_preview_boot.test.ts tests/appearance_creator_rows.test.ts
 
       - name: Build canonical native web bundle
         working-directory: game
@@ -169,9 +170,9 @@ jobs:
           mkdir -p output
           APK=$(find game/android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk
+          cp "$APK" output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk
           cp game/public/highfly-build.json output/highfly-build.json
-          sha256sum output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk > output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk.sha256
+          sha256sum output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk > output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk.sha256
           ls -lh output/*
 
       - name: Publish rolling canonical candidate
@@ -181,10 +182,10 @@ jobs:
           set -euo pipefail
           gh release delete highfly-canonical-latest --cleanup-tag -y >/dev/null 2>&1 || true
           gh release create highfly-canonical-latest \
-            output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk \
-            output/HIGHFLY_V1_CANONICAL_CC040_PHASE12_DEBUG.apk.sha256 \
+            output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk \
+            output/HIGHFLY_V1_CANONICAL_CC040_CREATOR21_DEBUG.apk.sha256 \
             output/highfly-build.json \
             --target "$GITHUB_SHA" \
-            --title "HIGHFLY v1 Canonical Phase 1-2" \
-            --notes "Canonical HIGHFLY candidate: exact ClaudeCraft 0.40 engine, owned native boot and owned creator foundation. No legacy patch replay and no experimental #179 overlays." \
+            --title "HIGHFLY v1 Canonical Creator 2.1" \
+            --notes "Canonical creator candidate: two-step HIGHFLY composition reusing ClaudeCraft 0.40 appearance editor, real preview, class cards and stat panel. No duplicate creator UI, no legacy patch replay, no #179 overlays." \
             --prerelease
