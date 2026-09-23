@@ -1,0 +1,106 @@
+name: ClaudeCraft Full Donor v0.43.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/claudecraft-donor-v0433
+    paths:
+      - ".github/workflows/claudecraft-donor-v0433.yml"
+      - "scripts/audit-claudecraft-donor.mjs"
+      - "docs/CLAUDECRAFT_FULL_DONOR_PIPELINE.md"
+
+jobs:
+  donor-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout HIGHFLY overlay
+        uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          df -h
+
+      - name: Clone ClaudeCraft v0.43.3
+        run: |
+          git clone --depth 1 --single-branch --branch v0.43.3 https://github.com/levy-street/world-of-claudecraft.git game
+          git -C game rev-parse HEAD
+          du -sh game
+          df -h
+
+      - name: Generate donor audit and Unity candidate manifest
+        run: |
+          node scripts/audit-claudecraft-donor.mjs game donor-audit
+          git -C game rev-parse HEAD > donor-audit/CLAUDECRAFT_COMMIT.txt
+          echo "v0.43.3" > donor-audit/CLAUDECRAFT_REF.txt
+          ls -lah donor-audit
+
+      - name: Upload donor audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-DONOR-AUDIT-v0.43.3
+          path: donor-audit/**
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload donor core
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-DONOR-CORE-v0.43.3
+          compression-level: 6
+          path: |
+            game/src/sim/**
+            game/src/world_api.ts
+            game/src/world_api/**
+            game/src/render/**
+            game/src/guide/content.generated.ts
+            game/scripts/assets/**
+            game/LICENSE
+            game/CREDITS.md
+            game/THIRD_PARTY_NOTICES.md
+            game/package.json
+            donor-audit/**
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload donor world media
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-DONOR-WORLD-MEDIA-v0.43.3
+          compression-level: 4
+          path: |
+            game/public/models/**
+            game/public/textures/**
+            game/public/env/**
+            game/public/vfx/**
+            game/LICENSE
+            game/CREDITS.md
+            game/THIRD_PARTY_NOTICES.md
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload donor audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-DONOR-AUDIO-v0.43.3
+          compression-level: 3
+          path: |
+            game/public/audio/**
+            game/LICENSE
+            game/CREDITS.md
+            game/THIRD_PARTY_NOTICES.md
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Final disk report
+        if: always()
+        run: |
+          du -sh game donor-audit || true
+          df -h
