@@ -1,0 +1,40 @@
+{
+  "schema": "highfly-claudecraft-unity-export-v1",
+  "source": {
+    "repository": "levy-street/world-of-claudecraft",
+    "ref": "v0.43.3",
+    "worldSeed": 20061
+  },
+  "coordinatePolicy": {
+    "sourceAxes": "ClaudeCraft x/z horizontal plane; source comments define +x as WEST in newer zones.",
+    "exportAxes": "Raw ClaudeCraft coordinates are preserved in JSON.",
+    "recommendedUnityMapping": "unityX = -sourceX; unityY = sampledHeight; unityZ = sourceZ",
+    "note": "Mirror X consistently for positions, paths and yaw when a compass-correct Unity world is desired."
+  },
+  "worldBounds": {
+    "minX": -540,
+    "maxX": 540,
+    "minZ": -180,
+    "maxZ": 2420,
+    "stripMinX": -180,
+    "stripMaxX": 180
+  },
+  "waterLevel": -4.3,
+  "terrainSampleStep": 4,
+  "counts": {
+    "zones": 15,
+    "roads": 102,
+    "portals": 1,
+    "camps": 218,
+    "npcs": 108,
+    "mobs": 250,
+    "quests": 224,
+    "items": 1301,
+    "gatherNodes": 156,
+    "dungeons": 14,
+    "delves": 2,
+    "groundObjects": 45,
+    "decorations": 4322,
+    "farmPatches": 4
+  }
+}
