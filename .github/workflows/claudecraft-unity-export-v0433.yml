@@ -10,7 +10,7 @@ on:
       - "scripts/export-claudecraft-unity.ts"
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -74,6 +74,25 @@ jobs:
           path: highfly-unity-export/**
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Unity-safe world data branch
+        run: |
+          rm -rf /tmp/highfly-world-data
+          mkdir -p /tmp/highfly-world-data
+          cp highfly-unity-export/unity-world-v01.json /tmp/highfly-world-data/
+          cp highfly-unity-export/meta.json /tmp/highfly-world-data/
+          cp highfly-unity-export/README_UNITY_EXPORT.md /tmp/highfly-world-data/
+          cd /tmp/highfly-world-data
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b world-data-v0433
+          git add .
+          git commit -m "data: publish ClaudeCraft Unity world v0.43.3"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin world-data-v0433
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Final disk report
         if: always()
