@@ -9,33 +9,45 @@ on:
       - ".github/workflows/claudecraft-unity-export-v0433.yml"
       - "scripts/export-claudecraft-unity.ts"
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   unity-export:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
 
     steps:
       - name: Checkout HIGHFLY overlay
         uses: actions/checkout@v4
 
-      - name: Free runner disk space
-        run: |
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /usr/local/.ghcup || true
-          df -h
+      - name: Reuse successful ClaudeCraft donor core
+        uses: actions/download-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-DONOR-CORE-v0.43.3
+          path: donor-core
+          repository: drakentzy07/HIGHFLY-NEXT-CORE
+          run-id: 35898841725
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clone ClaudeCraft v0.43.3
+      - name: Restore donor checkout layout
         run: |
-          git clone --depth 1 --single-branch --branch v0.43.3 https://github.com/levy-street/world-of-claudecraft.git game
-          git -C game rev-parse HEAD
+          rm -rf game
+          if [ -d donor-core/game ]; then
+            mv donor-core/game game
+          else
+            mkdir -p game
+            cp -a donor-core/. game/
+          fi
+          test -s game/src/sim/data.ts
+          test -s game/src/sim/world.ts
+          test -s game/package.json
           du -sh game
+          find game -maxdepth 2 -type d | sort | head -80
 
-      - name: Copy HIGHFLY exporter into donor checkout
-        run: |
-          cp scripts/export-claudecraft-unity.ts game/highfly_export_unity.ts
+      - name: Copy HIGHFLY exporter into donor core
+        run: cp scripts/export-claudecraft-unity.ts game/highfly_export_unity.ts
 
       - name: Export resolved world data
         working-directory: game
