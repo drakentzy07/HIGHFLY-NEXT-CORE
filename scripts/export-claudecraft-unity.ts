@@ -151,6 +151,7 @@ writeJson("decorations.json", decorations);
 
 const step = meta.terrainSampleStep;
 const terrainIndex: any[] = [];
+const terrainPayloads: any[] = [];
 
 for (const zone of zones) {
   const minX = zone.xMin ?? stripMinX;
@@ -180,7 +181,7 @@ for (const zone of zones) {
   }
 
   const zoneFile = "terrain/" + zone.id + ".json";
-  writeJson(zoneFile, {
+  const terrainPayload = {
     zoneId: zone.id,
     step,
     minX,
@@ -194,7 +195,9 @@ for (const zone of zones) {
     heights,
     waterMask,
     lakes: zone.lakes ?? [],
-  });
+  };
+  writeJson(zoneFile, terrainPayload);
+  terrainPayloads.push(terrainPayload);
 
   terrainIndex.push({
     zoneId: zone.id,
@@ -213,6 +216,107 @@ for (const zone of zones) {
 
 writeJson("terrain/index.json", terrainIndex);
 writeJson("meta.json", meta);
+
+function sourcePoint(value: any): { x: number; z: number } | null {
+  if (!value || typeof value !== "object") return null;
+  if (Number.isFinite(value.x) && Number.isFinite(value.z)) return { x: value.x, z: value.z };
+  if (value.pos) return sourcePoint(value.pos);
+  if (value.position) return sourcePoint(value.position);
+  if (value.center) return sourcePoint(value.center);
+  return null;
+}
+
+const unityZones = zones.map((zone: any) => ({
+  id: zone.id,
+  name: zone.name ?? zone.id,
+  biome: zone.biome ?? "",
+  xMin: zone.xMin ?? stripMinX,
+  xMax: zone.xMax ?? stripMaxX,
+  zMin: zone.zMin,
+  zMax: zone.zMax,
+  hub: sourcePoint(zone.hub),
+  lakes: Array.isArray(zone.lakes)
+    ? zone.lakes.map((lake: any) => ({
+        x: lake.x,
+        z: lake.z,
+        radius: lake.radius,
+      }))
+    : [],
+}));
+
+const unityRoads = DATA.ROADS.map((points: any[], index: number) => ({
+  id: "road_" + index,
+  points: points.map((p: any) => ({ x: p.x, z: p.z })),
+}));
+
+const unityCamps = DATA.CAMPS.map((camp: any, index: number) => {
+  const p = sourcePoint(camp) ?? { x: 0, z: 0 };
+  return {
+    id: camp.id ?? ("camp_" + index),
+    mobId: camp.mobId ?? "",
+    x: p.x,
+    z: p.z,
+    radius: camp.radius ?? 1,
+    count: camp.count ?? 1,
+  };
+});
+
+const unityGather = DATA.GATHER_NODES.map((node: any, index: number) => {
+  const p = sourcePoint(node) ?? { x: 0, z: 0 };
+  return {
+    id: node.id ?? ("gather_" + index),
+    type: node.type ?? "",
+    zoneId: node.zoneId ?? "",
+    tier: node.tier ?? 1,
+    x: p.x,
+    z: p.z,
+  };
+});
+
+const unityPortals = DATA.PORTALS.map((portal: any, index: number) => {
+  const p = sourcePoint(portal) ?? { x: 0, z: 0 };
+  const target = sourcePoint(portal.target ?? portal.destination ?? portal.to ?? null);
+  return {
+    id: portal.id ?? ("portal_" + index),
+    x: p.x,
+    z: p.z,
+    targetX: target?.x ?? p.x,
+    targetZ: target?.z ?? p.z,
+  };
+});
+
+const unityDecorations = decorations
+  .map((d: any, index: number) => {
+    const p = sourcePoint(d);
+    if (!p) return null;
+    return {
+      id: d.id ?? ("decor_" + index),
+      kind: d.kind ?? d.type ?? "decor",
+      x: p.x,
+      z: p.z,
+      scale: d.scale ?? 1,
+      rotation: d.rotation ?? d.rot ?? 0,
+    };
+  })
+  .filter(Boolean);
+
+writeJson("unity-world-v01.json", {
+  schema: "highfly-unity-world-v01",
+  sourceRef: "v0.43.3",
+  worldSeed: WORLD_SEED,
+  waterLevel: WATER_LEVEL,
+  playerStart: {
+    x: DATA.PLAYER_START.x,
+    z: DATA.PLAYER_START.z,
+  },
+  zones: unityZones,
+  terrain: terrainPayloads,
+  roads: unityRoads,
+  camps: unityCamps,
+  gatherNodes: unityGather,
+  portals: unityPortals,
+  decorations: unityDecorations,
+});
 
 const readme = [
   "# HIGHFLY ClaudeCraft -> Unity Data Export",
