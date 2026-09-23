@@ -32,6 +32,12 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Sync ClaudeCraft world data
+        run: |
+          mkdir -p site/data
+          curl -L --fail --retry 5             https://raw.githubusercontent.com/drakentzy07/HIGHFLY-NEXT-CORE/world-data-v0433/unity-world-v01.json             -o site/data/world.json
+          test -s site/data/world.json
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
