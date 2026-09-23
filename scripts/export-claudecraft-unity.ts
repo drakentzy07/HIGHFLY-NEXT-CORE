@@ -300,6 +300,56 @@ const unityDecorations = decorations
   })
   .filter(Boolean);
 
+const unityProps: any[] = [];
+function pushUnityProp(category: string, item: any, index: number): void {
+  if (Array.isArray(item)) {
+    if (Number.isFinite(item[0]) && Number.isFinite(item[1])) {
+      unityProps.push({
+        id: category + "_" + index,
+        category,
+        kind: category,
+        x: item[0],
+        z: item[1],
+        count: Number.isFinite(item[2]) ? item[2] : 1,
+        scale: 1,
+      });
+    }
+    return;
+  }
+  const p = sourcePoint(item);
+  if (!p) return;
+  unityProps.push({
+    id: item.id ?? (category + "_" + index),
+    category,
+    kind: item.kind ?? item.type ?? category,
+    assetId: item.assetId ?? "",
+    key: item.key ?? "",
+    x: p.x,
+    z: p.z,
+    x2: Number.isFinite(item.x2) ? item.x2 : p.x,
+    z2: Number.isFinite(item.z2) ? item.z2 : p.z,
+    rot: item.rot ?? item.rotation ?? item.dir ?? 0,
+    scale: item.scale ?? 1,
+    radius: item.r ?? item.radius ?? item.ringR ?? 0,
+    width: item.w ?? item.width ?? item.hw ?? 0,
+    depth: item.d ?? item.depth ?? item.hd ?? 0,
+    height: item.height ?? item.h ?? item.standableTop ?? 0,
+    count: item.columns ?? item.count ?? 1,
+  });
+}
+
+for (const [category, value] of Object.entries(DATA.PROPS as any)) {
+  if (Array.isArray(value)) {
+    value.forEach((item: any, index: number) => pushUnityProp(category, item, index));
+  } else if (category === "raceCourse" && value) {
+    const rc: any = value;
+    if (rc.arch) pushUnityProp("raceArch", rc.arch, 0);
+    if (Array.isArray(rc.jumps)) {
+      rc.jumps.forEach((item: any, index: number) => pushUnityProp("raceJump", item, index));
+    }
+  }
+}
+
 writeJson("unity-world-v01.json", {
   schema: "highfly-unity-world-v01",
   sourceRef: "v0.43.3",
@@ -316,6 +366,7 @@ writeJson("unity-world-v01.json", {
   gatherNodes: unityGather,
   portals: unityPortals,
   decorations: unityDecorations,
+  props: unityProps,
 });
 
 const readme = [
