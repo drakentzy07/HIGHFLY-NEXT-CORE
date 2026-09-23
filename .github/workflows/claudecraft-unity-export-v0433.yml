@@ -1,0 +1,68 @@
+name: ClaudeCraft Unity Export v0.43.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/claudecraft-donor-v0433
+    paths:
+      - ".github/workflows/claudecraft-unity-export-v0433.yml"
+      - "scripts/export-claudecraft-unity.ts"
+
+jobs:
+  unity-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout HIGHFLY overlay
+        uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          df -h
+
+      - name: Clone ClaudeCraft v0.43.3
+        run: |
+          git clone --depth 1 --single-branch --branch v0.43.3 https://github.com/levy-street/world-of-claudecraft.git game
+          git -C game rev-parse HEAD
+          du -sh game
+
+      - name: Copy HIGHFLY exporter into donor checkout
+        run: |
+          cp scripts/export-claudecraft-unity.ts game/highfly_export_unity.ts
+
+      - name: Export resolved world data
+        working-directory: game
+        run: |
+          npx --yes tsx@4.22.4 highfly_export_unity.ts ../highfly-unity-export
+          du -sh ../highfly-unity-export
+          find ../highfly-unity-export -maxdepth 2 -type f -printf "%p %k KB\n" | sort
+
+      - name: Validate required outputs
+        run: |
+          test -s highfly-unity-export/meta.json
+          test -s highfly-unity-export/world-core.json
+          test -s highfly-unity-export/entities.json
+          test -s highfly-unity-export/gameplay.json
+          test -s highfly-unity-export/decorations.json
+          test -s highfly-unity-export/terrain/index.json
+          node -e "const m=require('./highfly-unity-export/meta.json'); if(!m.counts?.zones || !m.counts?.dungeons) process.exit(1); console.log(m)"
+
+      - name: Upload Unity-ready world data
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-UNITY-DATA-v0.43.3
+          compression-level: 6
+          path: highfly-unity-export/**
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Final disk report
+        if: always()
+        run: df -h
