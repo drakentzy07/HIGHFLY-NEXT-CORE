@@ -1,0 +1,60 @@
+name: HIGHFLY Actions Storage Cleanup
+
+on:
+  push:
+    branches: [maintenance/actions-storage-cleanup]
+    paths:
+      - '.github/workflows/actions-storage-cleanup.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old Actions artifacts only
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const cutoffMs = Date.now() - 48 * 60 * 60 * 1000;
+
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              { owner, repo, per_page: 100 }
+            );
+
+            let deleted = 0;
+            let reclaimed = 0;
+            let kept = 0;
+
+            for (const artifact of artifacts) {
+              const created = new Date(artifact.created_at).getTime();
+              const shouldDelete = artifact.expired || created < cutoffMs;
+
+              if (!shouldDelete) {
+                kept++;
+                continue;
+              }
+
+              await github.rest.actions.deleteArtifact({
+                owner,
+                repo,
+                artifact_id: artifact.id,
+              });
+
+              deleted++;
+              reclaimed += artifact.size_in_bytes || 0;
+              core.info(`Deleted artifact ${artifact.id} ${artifact.name} (${artifact.size_in_bytes || 0} bytes)`);
+            }
+
+            core.summary
+              .addHeading('HIGHFLY Actions Storage Cleanup')
+              .addRaw(`Deleted artifacts: ${deleted}\n\n`)
+              .addRaw(`Kept recent artifacts: ${kept}\n\n`)
+              .addRaw(`Approx reclaimed: ${(reclaimed / 1024 / 1024).toFixed(1)} MB\n`)
+              .write();
