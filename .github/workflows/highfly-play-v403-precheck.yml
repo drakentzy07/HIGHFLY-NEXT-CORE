@@ -1,0 +1,32 @@
+name: HIGHFLY PLAY V4-03 — READ ONLY DESTINATION PAGES PRECHECK
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/highfly-play-v403-precheck.yml"]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Live Pages HTTP audit WITHOUT CHANGES
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json
+          base='https://drakentzy07.github.io/HIGHFLY-NEXT-CORE/'
+          names=['','world-lab/','claudecraft-unity/','claudecraft-unity/Build/HIGHFLY-WORLD-LAB.loader.js','claudecraft-unity/Build/HIGHFLY-WORLD-LAB.framework.js','claudecraft-unity/Build/HIGHFLY-WORLD-LAB.wasm','claudecraft-unity/Build/HIGHFLY-WORLD-LAB.data','play-v403/']
+          out=[]
+          for path in names:
+            u=base+path
+            try:
+              req=urllib.request.Request(u,method='HEAD',headers={'User-Agent':'HIGHFLY-PLAY-PRECHECK'})
+              with urllib.request.urlopen(req,timeout=25) as r:
+                out.append({'path':path,'status':r.status,'length':r.headers.get('Content-Length'),'type':r.headers.get('Content-Type')})
+            except urllib.error.HTTPError as e:out.append({'path':path,'status':e.code})
+            except Exception as e:out.append({'path':path,'error':str(e)})
+          print('HF_PLAY_DESTINATION_READONLY_HEAD='+json.dumps(out))
+          if out[0].get('status')!=200 or out[1].get('status')!=200:raise SystemExit('MISSING_LEGACY_SITE')
+          PY
