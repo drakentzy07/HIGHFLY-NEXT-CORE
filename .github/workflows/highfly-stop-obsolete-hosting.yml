@@ -1,0 +1,27 @@
+name: HIGHFLY — STOP outdated hosting publish (NO DEPLOY)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/highfly-stop-obsolete-hosting.yml"
+  workflow_dispatch:
+
+# The in-flight experimental publication was using the old NEXT-CORE
+# repository as a site. The owner explicitly declined reusing that host.
+# Cancel the prior run before it can publish anything.
+concurrency:
+  group: highfly-next-core-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stop_obsolete_host:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Respect owner instruction — NO obsolete Unity Pages publication
+        run: |
+          echo "HF_PLAY_STOP_OLD_NEXUS_HOST=1"
+          echo "NO DEPLOY, NO FILE CHANGES, NO GAME DATA TOUCH"
